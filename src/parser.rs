@@ -372,6 +372,7 @@ impl Iterator for Parser {
                             ));
                         }
                     }
+                    return None;
                 }
                 _ => {}
             }
