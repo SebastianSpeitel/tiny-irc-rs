@@ -1,0 +1,15 @@
+[package]
+name = "tiny-irc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+futures = "0.3.19"
+
+[profile.release]
+# strip = true
+opt-level = 'z' # Optimize for size.
+lto = true # Enable Link Time Optimization
+codegen-units = 1 # Reduce number of codegen units to increase optimizations.
+panic = 'abort' # Abort on panic
