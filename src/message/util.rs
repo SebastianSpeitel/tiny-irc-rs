@@ -7,7 +7,7 @@ where
 }
 
 impl<I: Iterator> Until<I> {
-    #[inline]
+    #[inline(always)]
     pub fn new(iter: I, until: I::Item) -> Self {
         Self { iter, until }
     }
@@ -16,25 +16,25 @@ impl<I: Iterator> Until<I> {
 impl<I> Iterator for Until<I>
 where
     I: Iterator,
-    I::Item: PartialEq<I::Item> + Copy,
+    I::Item: PartialEq<I::Item>,
 {
     type Item = I::Item;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        // self.iter.next().filter(|n| n != &self.until)
-        let n = self.iter.next();
+        self.iter.next().filter(|n| n != &self.until)
+        // let n = self.iter.next();
         // if n.contains(&self.until) {
         //     None
         // } else {
         //     n
         // }
-        if let Some(b) = n {
-            if b == self.until {
-                return None;
-            }
-        }
-        n
+        // if let Some(b) = n {
+        //     if b == self.until {
+        //         return None;
+        //     }
+        // }
+        // n
     }
 }
 
@@ -47,7 +47,7 @@ where
     I: Iterator,
     I::Item: PartialEq<I::Item>,
 {
-    #[inline]
+    #[inline(always)]
     fn until(self, until: I::Item) -> Until<I> {
         Until::new(self, until)
     }

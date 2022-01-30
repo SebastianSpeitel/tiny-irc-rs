@@ -1,7 +1,7 @@
 // #![feature(async_stream)]
 #![feature(test)]
 
-use futures::{stream::StreamExt, Stream};
+use futures::{Stream};
 use std::io::{Read, Result, Write};
 use std::net::TcpStream;
 use std::pin::Pin;
@@ -9,8 +9,9 @@ use std::task::{Context, Poll};
 use std::thread::sleep;
 use std::time::Duration;
 pub mod message;
+mod parser;
 // use message::{from, BaseMsg, Message, PRIVMSG};
-use std::mem::{size_of, size_of_val};
+use std::mem::{size_of};
 
 struct Chat {}
 
