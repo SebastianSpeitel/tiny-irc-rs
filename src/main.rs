@@ -1,7 +1,7 @@
 // #![feature(async_stream)]
 #![feature(test)]
 
-use futures::{Stream};
+use futures::Stream;
 use std::io::{Read, Result, Write};
 use std::net::TcpStream;
 use std::pin::Pin;
@@ -11,7 +11,7 @@ use std::time::Duration;
 pub mod message;
 mod parser;
 // use message::{from, BaseMsg, Message, PRIVMSG};
-use std::mem::{size_of};
+use std::mem::size_of;
 
 struct Chat {}
 
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
     // let nop = Message::NOOP;
 
-    println!("(u8, u8): {:?}", size_of::<(u8, u8)>());
+    println!("(u8, u16): {:?}", size_of::<(u16, u8)>());
     println!("Option<(u8, u8)>: {:?}", size_of::<Option<(u8, u8)>>());
     println!(
         "Option<Option<(u8, u8)>>: {:?}",
