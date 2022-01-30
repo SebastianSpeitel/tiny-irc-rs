@@ -303,15 +303,18 @@ impl Iterator for Parser {
         let mut params: Vec<(u16, u16)> = Vec::new();
 
         // println!("Start: {:?}", self.state);
-        match self.state {
-            State::Start => self.parse_start(&mut iter),
-            _ => {}
-        }
+        debug_assert!(matches!(self.state, State::Start));
+        self.parse_start(&mut iter);
+        // match self.state {
+        //     State::Start => self.parse_start(&mut iter),
+        //     _ => {}
+        // }
 
         // println!("Nick?: {:?}", self.state);
         match self.state {
             State::PrefixNick { begin } => {
                 self.parse_prefix_nick(&mut iter, begin, &mut prefix, &mut nick)
+                //TODO: move PrefixUser and PrefixHost in here
             }
             _ => {}
         }
@@ -334,31 +337,18 @@ impl Iterator for Parser {
             _ => {}
         }
 
-        println!("Command?: {:?}", self.state);
+        debug_assert!(matches!(self.state, State::Params));
+        // println!("Command?: {:?}", self.state);
         match self.state {
             State::Command { begin } => self.parse_command(&mut iter, begin, &mut command),
-            _ => {}
+            _ => {
+                unreachable!()
+            }
         }
 
-        println!("Params?: {:?}", self.state);
+        // println!("Params?: {:?}", self.state);
         while iter.len() > 0 {
-            match self.state {
-                State::Params => self.parse_params(&mut iter),
-                _ => {}
-            }
-
-            println!("Params2?: {:?}", self.state);
-            match self.state {
-                State::ParamsMiddle { begin } => {
-                    self.parse_params_middle(&mut iter, begin, &mut params)
-                }
-                State::ParamsTrailing { begin } => {
-                    self.parse_params_trailing(&mut iter, begin, &mut params)
-                }
-                _ => {}
-            }
-
-            println!("End?: {:?}", self.state);
+            // println!("End?: {:?}", self.state);
             match self.state {
                 State::End => {
                     if let Some((c, pos)) = iter.next() {
@@ -382,6 +372,24 @@ impl Iterator for Parser {
                             ));
                         }
                     }
+                }
+                _ => {}
+            }
+
+            debug_assert!(matches!(self.state, State::Params));
+            self.parse_params(&mut iter);
+            // match self.state {
+            //     State::Params => self.parse_params(&mut iter),
+            //     _ => {}
+            // }
+
+            // println!("Params2?: {:?}", self.state);
+            match self.state {
+                State::ParamsMiddle { begin } => {
+                    self.parse_params_middle(&mut iter, begin, &mut params)
+                }
+                State::ParamsTrailing { begin } => {
+                    self.parse_params_trailing(&mut iter, begin, &mut params)
                 }
                 _ => {}
             }
