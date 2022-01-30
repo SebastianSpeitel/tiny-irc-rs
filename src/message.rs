@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display, Formatter, Result as FResult};
+
 pub trait Message {
     fn command(&self) -> String;
     fn params(&self) -> Vec<String>;
@@ -7,6 +9,7 @@ pub trait Message {
     fn host(&self) -> Option<String>;
 }
 
+// #[derive(Debug, PartialEq)]
 pub struct ParsedMessage {
     raw: String,
     command: (u16, u16),
@@ -17,9 +20,29 @@ pub struct ParsedMessage {
     host: Option<(u16, u16)>,
 }
 
+impl PartialEq for ParsedMessage {
+    fn eq(&self, other: &Self) -> bool {
+        self.raw == other.raw
+    }
+}
+
+impl Display for ParsedMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        write!(f, "{}", self.raw)
+    }
+}
+
+impl Debug for ParsedMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        write!(f, "{}", self.raw)
+    }
+}
+
 impl Message for ParsedMessage {
     fn command(&self) -> String {
         let (begin, end) = self.command;
+        debug_assert!(begin <= end);
+        // self.raw[begin as usize..end as usize].to_string()
         unsafe {
             self.raw
                 .get_unchecked(begin as usize..end as usize)
@@ -1427,39 +1450,45 @@ mod tests {
     //     b.iter(|| ParsedMessage::parse_foreach(msg.clone()));
     // }
 
-    #[bench]
-    fn bench_parse_iter(b: &mut test::Bencher) {
-        let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
-        b.iter(|| ParsedMessage::parse_iter(msg.clone()));
-    }
+    mod iter {
+        use super::*;
 
-    #[bench]
-    fn bench_parse_small_iter(b: &mut test::Bencher) {
-        let msg = "PING".to_string();
-        b.iter(|| ParsedMessage::parse_iter(msg.clone()));
-    }
+        #[bench]
+        fn bench_parse_usual(b: &mut test::Bencher) {
+            let msg =
+                ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
+            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+        }
 
-    #[bench]
-    fn bench_parse_long_nick_iter(b: &mut test::Bencher) {
-        let front = ":".to_string();
-        let nick = "_".repeat(512 - 6);
-        let back = " PING".to_string();
-        let msg = format!("{}{}{}", front, nick, back);
+        #[bench]
+        fn bench_parse_small(b: &mut test::Bencher) {
+            let msg = "PING \r\n".to_string();
+            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+        }
 
-        assert_eq!(msg.len(), 512);
+        #[bench]
+        fn bench_parse_long_nick(b: &mut test::Bencher) {
+            let front = ":".to_string();
+            let nick = "_".repeat(512 - 9);
+            let back = " PING ".to_string();
+            let msg = format!("{}{}{}\r\n", front, nick, back);
 
-        b.iter(|| ParsedMessage::parse_iter(msg.clone()));
-    }
+            assert_eq!(msg.len(), 512);
 
-    #[bench]
-    fn bench_parse_long_trailing_iter(b: &mut test::Bencher) {
-        let front = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
-        let back = "_".repeat(448);
-        let msg = format!("{}{}", front, back);
+            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+        }
 
-        assert_eq!(msg.len(), 512);
+        #[bench]
+        fn bench_parse_long_trailing(b: &mut test::Bencher) {
+            let front =
+                ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
+            let back = "_".repeat(446);
+            let msg = format!("{}{}\r\n", front, back);
 
-        b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+            assert_eq!(msg.len(), 512);
+
+            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+        }
     }
 
     // #[bench]

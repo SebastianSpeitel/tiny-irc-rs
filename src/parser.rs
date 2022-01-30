@@ -17,14 +17,7 @@ enum State {
 }
 
 pub struct Parser {
-    buffer: VecDeque<u8>,
-    prefix: Option<(u16, u16)>,
-    nick: Option<(u16, u16)>,
-    user: Option<(u16, u16)>,
-    host: Option<(u16, u16)>,
-    command: (u16, u16),
-    params: Vec<(u16, u16)>,
-
+    buffer: Vec<u8>,
     state: State,
 }
 
@@ -40,7 +33,7 @@ impl<T> BufferIter<T>
 where
     T: Iterator,
 {
-    #[inline]
+    #[inline(always)]
     fn new(inner: T) -> Self {
         BufferIter { inner, pos: 0 }
     }
@@ -52,7 +45,7 @@ where
 {
     type Item = (T::Item, u16);
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|c| {
             self.pos += 1;
@@ -73,13 +66,7 @@ where
 impl Parser {
     pub fn new() -> Self {
         Self {
-            buffer: VecDeque::new(),
-            prefix: None,
-            nick: None,
-            user: None,
-            host: None,
-            command: (0, 0),
-            params: Vec::new(),
+            buffer: Vec::new(),
             state: State::Start,
         }
     }
@@ -105,22 +92,22 @@ impl Parser {
     //     self.pos = 0;
     // }
 
-    #[inline(always)]
-    fn build(&mut self, end: u16) -> ParsedMessage {
-        let rest = self.buffer.split_off(end as usize);
-        let raw_vec = replace(&mut self.buffer, rest).iter().cloned().collect();
-        let raw = unsafe { String::from_utf8_unchecked(raw_vec) };
-        let params = replace(&mut self.params, Vec::new());
-        ParsedMessage::new(
-            raw,
-            self.prefix.take(),
-            self.nick.take(),
-            self.user.take(),
-            self.host.take(),
-            self.command,
-            params, // self.params.drain(..).collect(),
-        )
-    }
+    // #[inline(always)]
+    // fn build(&mut self, end: u16) -> ParsedMessage {
+    //     let rest = self.buffer.split_off(end as usize);
+    //     let raw_vec = replace(&mut self.buffer, rest).iter().cloned().collect();
+    //     let raw = unsafe { String::from_utf8_unchecked(raw_vec) };
+    //     let params = replace(&mut self.params, Vec::new());
+    //     ParsedMessage::new(
+    //         raw,
+    //         self.prefix.take(),
+    //         self.nick.take(),
+    //         self.user.take(),
+    //         self.host.take(),
+    //         self.command,
+    //         params, // self.params.drain(..).collect(),
+    //     )
+    // }
 
     #[inline(always)]
     fn parse_start(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>) {
@@ -135,25 +122,31 @@ impl Parser {
     }
 
     #[inline(always)]
-    fn parse_prefix_nick(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>, begin: u16) {
+    fn parse_prefix_nick(
+        &mut self,
+        iter: &mut impl Iterator<Item = (u8, u16)>,
+        begin: u16,
+        prefix: &mut Option<(u16, u16)>,
+        nick: &mut Option<(u16, u16)>,
+    ) {
         while let Some((c, pos)) = iter.next() {
             if c == b'!' {
-                self.nick.replace((begin, pos));
+                nick.replace((begin, pos));
                 self.state = State::PrefixUser {
                     begin: pos + 1,
                     begin_prefix: begin,
                 };
                 break;
             } else if c == b'@' {
-                self.nick.replace((begin, pos));
+                nick.replace((begin, pos));
                 self.state = State::PrefixHost {
                     begin: pos + 1,
                     begin_prefix: begin,
                 };
                 break;
             } else if c == b' ' {
-                self.nick.replace((begin, pos));
-                self.prefix.replace((begin, pos));
+                nick.replace((begin, pos));
+                prefix.replace((begin, pos));
                 self.state = State::Command { begin: pos + 1 };
                 break;
             }
@@ -166,18 +159,20 @@ impl Parser {
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         begin_prefix: u16,
+        prefix: &mut Option<(u16, u16)>,
+        user: &mut Option<(u16, u16)>,
     ) {
         while let Some((c, pos)) = iter.next() {
             if c == b'@' {
-                self.user.replace((begin, pos));
+                user.replace((begin, pos));
                 self.state = State::PrefixHost {
                     begin: pos + 1,
                     begin_prefix,
                 };
                 break;
             } else if c == b' ' {
-                self.user.replace((begin, pos));
-                self.prefix.replace((begin_prefix, pos));
+                user.replace((begin, pos));
+                prefix.replace((begin_prefix, pos));
                 self.state = State::Command { begin: pos + 1 };
                 break;
             }
@@ -190,11 +185,13 @@ impl Parser {
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         begin_prefix: u16,
+        prefix: &mut Option<(u16, u16)>,
+        host: &mut Option<(u16, u16)>,
     ) {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
-                self.host.replace((begin, pos));
-                self.prefix.replace((begin_prefix, pos));
+                host.replace((begin, pos));
+                prefix.replace((begin_prefix, pos));
                 self.state = State::Command { begin: pos + 1 };
                 break;
             }
@@ -202,13 +199,20 @@ impl Parser {
     }
 
     #[inline(always)]
-    fn parse_command(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>, begin: u16) {
+    fn parse_command(
+        &mut self,
+        iter: &mut impl Iterator<Item = (u8, u16)>,
+        begin: u16,
+        command: &mut Option<(u16, u16)>,
+    ) {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
-                self.command = (begin, pos);
+                command.replace((begin, pos));
                 self.state = State::Params;
                 break;
             }
+            debug_assert_ne!(c as char, '\r');
+            debug_assert_ne!(c as char, '\n');
         }
     }
 
@@ -226,14 +230,19 @@ impl Parser {
     }
 
     #[inline(always)]
-    fn parse_params_middle(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>, begin: u16) {
+    fn parse_params_middle(
+        &mut self,
+        iter: &mut impl Iterator<Item = (u8, u16)>,
+        begin: u16,
+        params: &mut Vec<(u16, u16)>,
+    ) {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
-                self.params.push((begin, pos));
+                params.push((begin, pos));
                 self.state = State::Params;
                 break;
             } else if c == b'\r' {
-                self.params.push((begin, pos));
+                params.push((begin, pos));
                 self.state = State::End;
                 break;
             }
@@ -241,10 +250,15 @@ impl Parser {
     }
 
     #[inline(always)]
-    fn parse_params_trailing(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>, begin: u16) {
+    fn parse_params_trailing(
+        &mut self,
+        iter: &mut impl Iterator<Item = (u8, u16)>,
+        begin: u16,
+        params: &mut Vec<(u16, u16)>,
+    ) {
         while let Some((c, pos)) = iter.next() {
             if c == b'\r' {
-                self.params.push((begin, pos));
+                params.push((begin, pos));
                 self.state = State::End;
                 break;
             }
@@ -252,7 +266,11 @@ impl Parser {
     }
 
     pub fn push(&mut self, buf_in: String) {
-        self.buffer.extend(buf_in.as_bytes());
+        if self.buffer.is_empty() {
+            self.buffer = buf_in.into_bytes();
+        } else {
+            self.buffer.append(&mut buf_in.into_bytes());
+        }
     }
 }
 
@@ -260,56 +278,108 @@ impl Iterator for Parser {
     type Item = ParsedMessage;
 
     fn next(&mut self) -> Option<ParsedMessage> {
+        self.state = State::Start;
         let buffer = self.buffer.clone();
-        let mut iter = BufferIter::new(buffer.iter().cloned());
+        // let mut iter = BufferIter::new(buffer.iter().cloned());
+        let mut pos: u16 = 0;
+        let mut iter = buffer.iter().map(|c| {
+            pos += 1;
+            (*c, pos - 1)
+        });
 
+        // println!("pos: {:?}, len: {:?}", iter.pos, iter.len());
+        // while let Some((c, pos)) = iter.next() {
+        //     println!("{:?}", (c as char, pos));
+        // }
+        // println!("pos: {:?}, len: {:?}", iter.pos, iter.len());
+
+        // return None;
+
+        let mut prefix: Option<(u16, u16)> = None;
+        let mut nick: Option<(u16, u16)> = None;
+        let mut user: Option<(u16, u16)> = None;
+        let mut host: Option<(u16, u16)> = None;
+        let mut command: Option<(u16, u16)> = None;
+        let mut params: Vec<(u16, u16)> = Vec::new();
+
+        // println!("Start: {:?}", self.state);
         match self.state {
             State::Start => self.parse_start(&mut iter),
             _ => {}
         }
 
+        // println!("Nick?: {:?}", self.state);
         match self.state {
-            State::PrefixNick { begin } => self.parse_prefix_nick(&mut iter, begin),
+            State::PrefixNick { begin } => {
+                self.parse_prefix_nick(&mut iter, begin, &mut prefix, &mut nick)
+            }
             _ => {}
         }
 
+        // println!("User?: {:?}", self.state);
         match self.state {
             State::PrefixUser {
                 begin,
                 begin_prefix,
-            } => self.parse_prefix_user(&mut iter, begin, begin_prefix),
+            } => self.parse_prefix_user(&mut iter, begin, begin_prefix, &mut prefix, &mut user),
             _ => {}
         }
 
+        // println!("Host?: {:?}", self.state);
         match self.state {
             State::PrefixHost {
                 begin,
                 begin_prefix,
-            } => self.parse_prefix_host(&mut iter, begin, begin_prefix),
+            } => self.parse_prefix_host(&mut iter, begin, begin_prefix, &mut prefix, &mut host),
             _ => {}
         }
 
+        println!("Command?: {:?}", self.state);
         match self.state {
-            State::Command { begin } => self.parse_command(&mut iter, begin),
+            State::Command { begin } => self.parse_command(&mut iter, begin, &mut command),
             _ => {}
         }
 
-        while (iter.pos as usize) < iter.len() {
+        println!("Params?: {:?}", self.state);
+        while iter.len() > 0 {
             match self.state {
                 State::Params => self.parse_params(&mut iter),
                 _ => {}
             }
+
+            println!("Params2?: {:?}", self.state);
             match self.state {
-                State::ParamsMiddle { begin } => self.parse_params_middle(&mut iter, begin),
-                State::ParamsTrailing { begin } => self.parse_params_trailing(&mut iter, begin),
+                State::ParamsMiddle { begin } => {
+                    self.parse_params_middle(&mut iter, begin, &mut params)
+                }
+                State::ParamsTrailing { begin } => {
+                    self.parse_params_trailing(&mut iter, begin, &mut params)
+                }
                 _ => {}
             }
+
+            println!("End?: {:?}", self.state);
             match self.state {
                 State::End => {
                     if let Some((c, pos)) = iter.next() {
                         if c == b'\n' {
-                            self.state = State::Start;
-                            return Some(self.build(pos + 1));
+                            let raw_vec = if pos as usize == self.buffer.len() - 1 {
+                                replace(&mut self.buffer, Vec::new())
+                            } else {
+                                let rest = self.buffer.split_off(pos as usize + 1);
+                                replace(&mut self.buffer, rest)
+                            };
+
+                            let raw = unsafe { String::from_utf8_unchecked(raw_vec) };
+                            return Some(ParsedMessage::new(
+                                raw,
+                                prefix,
+                                nick,
+                                user,
+                                host,
+                                command.unwrap(),
+                                params,
+                            ));
                         }
                     }
                 }
@@ -403,6 +473,37 @@ mod tests {
         assert_eq!(msg.params(), vec!["#<channel>", "This is a sample message"]);
     }
 
+    #[test]
+    fn test_parse_two_messages() {
+        let msg1 = ":irc.example.com 001 test :Message1\r\n".to_string();
+        let msg2 = ":irc.example.com 001 test :Message2\r\n".to_string();
+        let mut parser = Parser::new();
+        parser.push(msg1);
+        parser.push(msg2);
+        let msg1 = parser.next().unwrap();
+        let msg2 = parser.next().unwrap();
+
+        assert_eq!(msg1.command(), "001");
+        assert_eq!(msg1.params(), vec!["test", "Message1"]);
+        assert_eq!(msg2.command(), "001");
+        assert_eq!(msg2.params(), vec!["test", "Message2"]);
+    }
+
+    #[test]
+    fn test_parse_incomplete() {
+        let msg = ":irc.example.com 001 ".to_string();
+        let mut parser = Parser::new();
+        parser.push(msg);
+        assert_eq!(parser.next(), None);
+
+        parser.push("\r\n".to_string());
+        let msg = parser.next();
+        assert_ne!(msg, None);
+        let msg = msg.unwrap();
+        assert_eq!(msg.command(), "001");
+        // assert_eq!(msg.params().len(), 0);
+    }
+
     #[bench]
     fn bench_parse_usual(b: &mut test::Bencher) {
         let msg =
@@ -427,8 +528,8 @@ mod tests {
     #[bench]
     fn bench_parse_long_nick(b: &mut test::Bencher) {
         let front = ":".to_string();
-        let nick = "_".repeat(512 - 8);
-        let back = " PING".to_string();
+        let nick = "_".repeat(512 - 9);
+        let back = " PING ".to_string();
         let msg = format!("{}{}{}\r\n", front, nick, back);
 
         assert_eq!(msg.len(), 512);
