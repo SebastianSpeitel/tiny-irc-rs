@@ -1,6 +1,6 @@
 use crate::message::{Message, ParsedMessage};
-use std::cell::{Cell, RefCell, RefMut};
-use std::collections::VecDeque;
+// use std::cell::{Cell, RefCell, RefMut};
+// use std::collections::VecDeque;
 use std::mem::replace;
 
 #[derive(Debug)]
@@ -14,11 +14,11 @@ enum State {
     ParamsMiddle { begin: u16 },
     ParamsTrailing { begin: u16 },
     End,
+    Stop,
 }
 
 pub struct Parser {
     buffer: Vec<u8>,
-    state: State,
 }
 
 struct BufferIter<T>
@@ -65,10 +65,7 @@ where
 
 impl Parser {
     pub fn new() -> Self {
-        Self {
-            buffer: Vec::new(),
-            state: State::Start,
-        }
+        Self { buffer: Vec::new() }
     }
 
     // fn emit(&mut self) {
@@ -110,15 +107,16 @@ impl Parser {
     // }
 
     #[inline(always)]
-    fn parse_start(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>) {
+    fn parse_start(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>) -> Result<State, String> {
         if let Some((c, pos)) = iter.next() {
             debug_assert_eq!(pos, 0);
             if c == b':' {
-                self.state = State::PrefixNick { begin: 1 };
+                return Ok(State::PrefixNick { begin: 1 });
             } else {
-                self.state = State::Command { begin: 0 };
+                return Ok(State::Command { begin: 0 });
             }
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
@@ -128,29 +126,27 @@ impl Parser {
         begin: u16,
         prefix: &mut Option<(u16, u16)>,
         nick: &mut Option<(u16, u16)>,
-    ) {
+    ) -> Result<State, String> {
         while let Some((c, pos)) = iter.next() {
             if c == b'!' {
                 nick.replace((begin, pos));
-                self.state = State::PrefixUser {
+                return Ok(State::PrefixUser {
                     begin: pos + 1,
                     begin_prefix: begin,
-                };
-                break;
+                });
             } else if c == b'@' {
                 nick.replace((begin, pos));
-                self.state = State::PrefixHost {
+                return Ok(State::PrefixHost {
                     begin: pos + 1,
                     begin_prefix: begin,
-                };
-                break;
+                });
             } else if c == b' ' {
                 nick.replace((begin, pos));
                 prefix.replace((begin, pos));
-                self.state = State::Command { begin: pos + 1 };
-                break;
+                return Ok(State::Command { begin: pos + 1 });
             }
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
@@ -161,22 +157,21 @@ impl Parser {
         begin_prefix: u16,
         prefix: &mut Option<(u16, u16)>,
         user: &mut Option<(u16, u16)>,
-    ) {
+    ) -> Result<State, String> {
         while let Some((c, pos)) = iter.next() {
             if c == b'@' {
                 user.replace((begin, pos));
-                self.state = State::PrefixHost {
+                return Ok(State::PrefixHost {
                     begin: pos + 1,
                     begin_prefix,
-                };
-                break;
+                });
             } else if c == b' ' {
                 user.replace((begin, pos));
                 prefix.replace((begin_prefix, pos));
-                self.state = State::Command { begin: pos + 1 };
-                break;
+                return Ok(State::Command { begin: pos + 1 });
             }
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
@@ -187,15 +182,15 @@ impl Parser {
         begin_prefix: u16,
         prefix: &mut Option<(u16, u16)>,
         host: &mut Option<(u16, u16)>,
-    ) {
+    ) -> Result<State, String> {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
                 host.replace((begin, pos));
                 prefix.replace((begin_prefix, pos));
-                self.state = State::Command { begin: pos + 1 };
-                break;
+                return Ok(State::Command { begin: pos + 1 });
             }
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
@@ -204,29 +199,33 @@ impl Parser {
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         command: &mut Option<(u16, u16)>,
-    ) {
+    ) -> Result<State, String> {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
                 command.replace((begin, pos));
-                self.state = State::Params;
-                break;
+                return Ok(State::Params);
             }
             debug_assert_ne!(c as char, '\r');
             debug_assert_ne!(c as char, '\n');
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
-    fn parse_params(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>) {
+    fn parse_params(
+        &mut self,
+        iter: &mut impl Iterator<Item = (u8, u16)>,
+    ) -> Result<State, String> {
         if let Some((c, pos)) = iter.next() {
             if c == b':' {
-                self.state = State::ParamsTrailing { begin: pos + 1 }
+                return Ok(State::ParamsTrailing { begin: pos + 1 });
             } else if c == b'\r' {
-                self.state = State::End
+                return Ok(State::End);
             } else {
-                self.state = State::ParamsMiddle { begin: pos }
+                return Ok(State::ParamsMiddle { begin: pos });
             }
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
@@ -235,18 +234,17 @@ impl Parser {
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         params: &mut Vec<(u16, u16)>,
-    ) {
+    ) -> Result<State, String> {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
                 params.push((begin, pos));
-                self.state = State::Params;
-                break;
+                return Ok(State::Params);
             } else if c == b'\r' {
                 params.push((begin, pos));
-                self.state = State::End;
-                break;
+                return Ok(State::End);
             }
         }
+        Ok(State::Stop)
     }
 
     #[inline(always)]
@@ -255,14 +253,14 @@ impl Parser {
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         params: &mut Vec<(u16, u16)>,
-    ) {
+    ) -> Result<State, String> {
         while let Some((c, pos)) = iter.next() {
             if c == b'\r' {
                 params.push((begin, pos));
-                self.state = State::End;
-                break;
+                return Ok(State::End);
             }
         }
+        Ok(State::Stop)
     }
 
     pub fn push(&mut self, buf_in: String) {
@@ -278,7 +276,7 @@ impl Iterator for Parser {
     type Item = ParsedMessage;
 
     fn next(&mut self) -> Option<ParsedMessage> {
-        self.state = State::Start;
+        let mut state = State::Start;
         let buffer = self.buffer.clone();
         // let mut iter = BufferIter::new(buffer.iter().cloned());
         let mut pos: u16 = 0;
@@ -303,53 +301,65 @@ impl Iterator for Parser {
         let mut params: Vec<(u16, u16)> = Vec::new();
 
         // println!("Start: {:?}", self.state);
-        debug_assert!(matches!(self.state, State::Start));
-        self.parse_start(&mut iter);
+        debug_assert!(matches!(state, State::Start));
+        state = self.parse_start(&mut iter).expect("");
         // match self.state {
         //     State::Start => self.parse_start(&mut iter),
         //     _ => {}
         // }
 
         // println!("Nick?: {:?}", self.state);
-        match self.state {
+        match state {
             State::PrefixNick { begin } => {
-                self.parse_prefix_nick(&mut iter, begin, &mut prefix, &mut nick)
+                state = self
+                    .parse_prefix_nick(&mut iter, begin, &mut prefix, &mut nick)
+                    .expect("");
                 //TODO: move PrefixUser and PrefixHost in here
             }
             _ => {}
         }
 
-        // println!("User?: {:?}", self.state);
-        match self.state {
+        // println!("User?: {:?}", state);
+        match state {
             State::PrefixUser {
                 begin,
                 begin_prefix,
-            } => self.parse_prefix_user(&mut iter, begin, begin_prefix, &mut prefix, &mut user),
+            } => {
+                state = self
+                    .parse_prefix_user(&mut iter, begin, begin_prefix, &mut prefix, &mut user)
+                    .expect("")
+            }
             _ => {}
         }
 
         // println!("Host?: {:?}", self.state);
-        match self.state {
+        match state {
             State::PrefixHost {
                 begin,
                 begin_prefix,
-            } => self.parse_prefix_host(&mut iter, begin, begin_prefix, &mut prefix, &mut host),
+            } => {
+                state = self
+                    .parse_prefix_host(&mut iter, begin, begin_prefix, &mut prefix, &mut host)
+                    .expect("")
+            }
             _ => {}
         }
 
-        debug_assert!(matches!(self.state, State::Params));
-        // println!("Command?: {:?}", self.state);
-        match self.state {
-            State::Command { begin } => self.parse_command(&mut iter, begin, &mut command),
-            _ => {
-                unreachable!()
+        // debug_assert!(matches!(state, State::Command { begin }));
+        // println!("Command?: {:?}", state);
+        match state {
+            State::Command { begin } => {
+                state = self
+                    .parse_command(&mut iter, begin, &mut command)
+                    .expect("")
             }
+            _ => {}
         }
 
         // println!("Params?: {:?}", self.state);
         while iter.len() > 0 {
             // println!("End?: {:?}", self.state);
-            match self.state {
+            match state {
                 State::End => {
                     if let Some((c, pos)) = iter.next() {
                         if c == b'\n' {
@@ -377,20 +387,25 @@ impl Iterator for Parser {
                 _ => {}
             }
 
-            debug_assert!(matches!(self.state, State::Params));
-            self.parse_params(&mut iter);
+            // debug_assert!(matches!(state, State::Params));
+            state = self.parse_params(&mut iter).expect("");
             // match self.state {
             //     State::Params => self.parse_params(&mut iter),
             //     _ => {}
             // }
 
             // println!("Params2?: {:?}", self.state);
-            match self.state {
+            match state {
                 State::ParamsMiddle { begin } => {
-                    self.parse_params_middle(&mut iter, begin, &mut params)
+                    state = self
+                        .parse_params_middle(&mut iter, begin, &mut params)
+                        .expect("");
                 }
+
                 State::ParamsTrailing { begin } => {
-                    self.parse_params_trailing(&mut iter, begin, &mut params)
+                    state = self
+                        .parse_params_trailing(&mut iter, begin, &mut params)
+                        .expect("");
                 }
                 _ => {}
             }
