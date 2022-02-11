@@ -60,52 +60,32 @@ impl Message for ParsedMessage {
             .collect()
     }
     fn prefix(&self) -> Option<String> {
-        match self.prefix {
-            Some((begin, end)) => unsafe {
-                Some(
-                    self.raw
-                        .get_unchecked(begin as usize..end as usize)
-                        .to_string(),
-                )
-            },
-            None => None,
-        }
+        self.prefix.map(|(begin, end)| unsafe {
+            self.raw
+                .get_unchecked(begin as usize..end as usize)
+                .to_string()
+        })
     }
     fn nick(&self) -> Option<String> {
-        match self.nick {
-            Some((begin, end)) => unsafe {
-                Some(
-                    self.raw
-                        .get_unchecked(begin as usize..end as usize)
-                        .to_string(),
-                )
-            },
-            None => None,
-        }
+        self.nick.map(|(begin, end)| unsafe {
+            self.raw
+                .get_unchecked(begin as usize..end as usize)
+                .to_string()
+        })
     }
     fn user(&self) -> Option<String> {
-        match self.user {
-            Some((begin, end)) => unsafe {
-                Some(
-                    self.raw
-                        .get_unchecked(begin as usize..end as usize)
-                        .to_string(),
-                )
-            },
-            None => None,
-        }
+        self.user.map(|(begin, end)| unsafe {
+            self.raw
+                .get_unchecked(begin as usize..end as usize)
+                .to_string()
+        })
     }
     fn host(&self) -> Option<String> {
-        match self.host {
-            Some((begin, end)) => unsafe {
-                Some(
-                    self.raw
-                        .get_unchecked(begin as usize..end as usize)
-                        .to_string(),
-                )
-            },
-            None => None,
-        }
+        self.host.map(|(begin, end)| unsafe {
+            self.raw
+                .get_unchecked(begin as usize..end as usize)
+                .to_string()
+        })
     }
 }
 
