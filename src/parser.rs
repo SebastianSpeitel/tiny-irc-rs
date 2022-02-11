@@ -107,160 +107,157 @@ impl Parser {
     // }
 
     #[inline(always)]
-    fn parse_start(&mut self, iter: &mut impl Iterator<Item = (u8, u16)>) -> Result<State, String> {
+    fn parse_start(&self, iter: &mut impl Iterator<Item = (u8, u16)>) -> State {
         if let Some((c, pos)) = iter.next() {
             debug_assert_eq!(pos, 0);
             if c == b':' {
-                return Ok(State::PrefixNick { begin: 1 });
+                return State::PrefixNick { begin: 1 };
             } else {
-                return Ok(State::Command { begin: 0 });
+                return State::Command { begin: 0 };
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
     fn parse_prefix_nick(
-        &mut self,
+        &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         prefix: &mut Option<(u16, u16)>,
         nick: &mut Option<(u16, u16)>,
-    ) -> Result<State, String> {
+    ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b'!' {
                 nick.replace((begin, pos));
-                return Ok(State::PrefixUser {
+                return State::PrefixUser {
                     begin: pos + 1,
                     begin_prefix: begin,
-                });
+                };
             } else if c == b'@' {
                 nick.replace((begin, pos));
-                return Ok(State::PrefixHost {
+                return State::PrefixHost {
                     begin: pos + 1,
                     begin_prefix: begin,
-                });
+                };
             } else if c == b' ' {
                 nick.replace((begin, pos));
                 prefix.replace((begin, pos));
-                return Ok(State::Command { begin: pos + 1 });
+                return State::Command { begin: pos + 1 };
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
     fn parse_prefix_user(
-        &mut self,
+        &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         begin_prefix: u16,
         prefix: &mut Option<(u16, u16)>,
         user: &mut Option<(u16, u16)>,
-    ) -> Result<State, String> {
+    ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b'@' {
                 user.replace((begin, pos));
-                return Ok(State::PrefixHost {
+                return State::PrefixHost {
                     begin: pos + 1,
                     begin_prefix,
-                });
+                };
             } else if c == b' ' {
                 user.replace((begin, pos));
                 prefix.replace((begin_prefix, pos));
-                return Ok(State::Command { begin: pos + 1 });
+                return State::Command { begin: pos + 1 };
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
     fn parse_prefix_host(
-        &mut self,
+        &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         begin_prefix: u16,
         prefix: &mut Option<(u16, u16)>,
         host: &mut Option<(u16, u16)>,
-    ) -> Result<State, String> {
+    ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
                 host.replace((begin, pos));
                 prefix.replace((begin_prefix, pos));
-                return Ok(State::Command { begin: pos + 1 });
+                return State::Command { begin: pos + 1 };
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
     fn parse_command(
-        &mut self,
+        &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         command: &mut Option<(u16, u16)>,
-    ) -> Result<State, String> {
+    ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
                 command.replace((begin, pos));
-                return Ok(State::Params);
+                return State::Params;
             }
             debug_assert_ne!(c as char, '\r');
             debug_assert_ne!(c as char, '\n');
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
-    fn parse_params(
-        &mut self,
-        iter: &mut impl Iterator<Item = (u8, u16)>,
-    ) -> Result<State, String> {
+    fn parse_params(&self, iter: &mut impl Iterator<Item = (u8, u16)>) -> State {
         if let Some((c, pos)) = iter.next() {
             if c == b':' {
-                return Ok(State::ParamsTrailing { begin: pos + 1 });
+                return State::ParamsTrailing { begin: pos + 1 };
             } else if c == b'\r' {
-                return Ok(State::End);
+                return State::End;
             } else {
-                return Ok(State::ParamsMiddle { begin: pos });
+                return State::ParamsMiddle { begin: pos };
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
     fn parse_params_middle(
-        &mut self,
+        &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         params: &mut Vec<(u16, u16)>,
-    ) -> Result<State, String> {
+    ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
                 params.push((begin, pos));
-                return Ok(State::Params);
+                return State::Params;
             } else if c == b'\r' {
                 params.push((begin, pos));
-                return Ok(State::End);
+                return State::End;
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     #[inline(always)]
     fn parse_params_trailing(
-        &mut self,
+        &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
         params: &mut Vec<(u16, u16)>,
-    ) -> Result<State, String> {
+    ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b'\r' {
                 params.push((begin, pos));
-                return Ok(State::End);
+                return State::End;
             }
         }
-        Ok(State::Stop)
+        State::Stop
     }
 
     pub fn push(&mut self, buf_in: String) {
@@ -302,7 +299,7 @@ impl Iterator for Parser {
 
         // println!("Start: {:?}", self.state);
         debug_assert!(matches!(state, State::Start));
-        state = self.parse_start(&mut iter).expect("");
+        state = self.parse_start(&mut iter);
         // match self.state {
         //     State::Start => self.parse_start(&mut iter),
         //     _ => {}
@@ -311,11 +308,10 @@ impl Iterator for Parser {
         // println!("Nick?: {:?}", self.state);
         match state {
             State::PrefixNick { begin } => {
-                state = self
-                    .parse_prefix_nick(&mut iter, begin, &mut prefix, &mut nick)
-                    .expect("");
+                state = self.parse_prefix_nick(&mut iter, begin, &mut prefix, &mut nick);
                 //TODO: move PrefixUser and PrefixHost in here
             }
+            State::Stop => return None,
             _ => {}
         }
 
@@ -325,10 +321,10 @@ impl Iterator for Parser {
                 begin,
                 begin_prefix,
             } => {
-                state = self
-                    .parse_prefix_user(&mut iter, begin, begin_prefix, &mut prefix, &mut user)
-                    .expect("")
+                state =
+                    self.parse_prefix_user(&mut iter, begin, begin_prefix, &mut prefix, &mut user)
             }
+            State::Stop => return None,
             _ => {}
         }
 
@@ -338,26 +334,23 @@ impl Iterator for Parser {
                 begin,
                 begin_prefix,
             } => {
-                state = self
-                    .parse_prefix_host(&mut iter, begin, begin_prefix, &mut prefix, &mut host)
-                    .expect("")
+                state =
+                    self.parse_prefix_host(&mut iter, begin, begin_prefix, &mut prefix, &mut host)
             }
+            State::Stop => return None,
             _ => {}
         }
 
         // debug_assert!(matches!(state, State::Command { begin }));
         // println!("Command?: {:?}", state);
         match state {
-            State::Command { begin } => {
-                state = self
-                    .parse_command(&mut iter, begin, &mut command)
-                    .expect("")
-            }
+            State::Command { begin } => state = self.parse_command(&mut iter, begin, &mut command),
+            State::Stop => return None,
             _ => {}
         }
 
         // println!("Params?: {:?}", self.state);
-        while iter.len() > 0 {
+        loop {
             // println!("End?: {:?}", self.state);
             match state {
                 State::End => {
@@ -384,11 +377,12 @@ impl Iterator for Parser {
                     }
                     return None;
                 }
+                State::Stop => return None,
                 _ => {}
             }
 
             // debug_assert!(matches!(state, State::Params));
-            state = self.parse_params(&mut iter).expect("");
+            state = self.parse_params(&mut iter);
             // match self.state {
             //     State::Params => self.parse_params(&mut iter),
             //     _ => {}
@@ -397,16 +391,12 @@ impl Iterator for Parser {
             // println!("Params2?: {:?}", self.state);
             match state {
                 State::ParamsMiddle { begin } => {
-                    state = self
-                        .parse_params_middle(&mut iter, begin, &mut params)
-                        .expect("");
+                    state = self.parse_params_middle(&mut iter, begin, &mut params);
                 }
-
                 State::ParamsTrailing { begin } => {
-                    state = self
-                        .parse_params_trailing(&mut iter, begin, &mut params)
-                        .expect("");
+                    state = self.parse_params_trailing(&mut iter, begin, &mut params);
                 }
+                State::Stop => return None,
                 _ => {}
             }
         }
@@ -448,7 +438,7 @@ impl Iterator for Parser {
         //         }
         //     }
         // }
-        None
+        // None
     }
 }
 
