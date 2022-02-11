@@ -267,6 +267,14 @@ impl Parser {
             self.buffer.append(&mut buf_in.into_bytes());
         }
     }
+
+    pub fn push_buf(&mut self, buf_in: &[u8]) {
+        if self.buffer.is_empty() {
+            self.buffer = buf_in.to_vec();
+        } else {
+            self.buffer.append(&mut buf_in.to_vec());
+        }
+    }
 }
 
 impl Iterator for Parser {
