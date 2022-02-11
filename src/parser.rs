@@ -1,7 +1,7 @@
 use crate::message::{Message, ParsedMessage};
 // use std::cell::{Cell, RefCell, RefMut};
 // use std::collections::VecDeque;
-use std::mem::replace;
+use std::mem::{replace, take};
 
 #[derive(Debug)]
 enum State {
@@ -357,7 +357,7 @@ impl Iterator for Parser {
                     if let Some((c, pos)) = iter.next() {
                         if c == b'\n' {
                             let raw_vec = if pos as usize == self.buffer.len() - 1 {
-                                replace(&mut self.buffer, Vec::new())
+                                take(&mut self.buffer)
                             } else {
                                 let rest = self.buffer.split_off(pos as usize + 1);
                                 replace(&mut self.buffer, rest)
