@@ -274,10 +274,10 @@ impl Iterator for Parser {
 
     fn next(&mut self) -> Option<ParsedMessage> {
         let mut state = State::Start;
-        let buffer = self.buffer.clone();
+        // let buffer = &self.buffer;
         // let mut iter = BufferIter::new(buffer.iter().cloned());
         let mut pos: u16 = 0;
-        let mut iter = buffer.iter().map(|c| {
+        let mut iter = self.buffer.iter().map(|c| {
             pos += 1;
             (*c, pos - 1)
         });
