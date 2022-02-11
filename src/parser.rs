@@ -569,4 +569,31 @@ mod tests {
             parser.next()
         });
     }
+
+    #[bench]
+    fn bench_parse_sequential1(b: &mut test::Bencher) {
+        let msg =
+            ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
+
+        let mut parser = Parser::new();
+        b.iter(|| {
+            parser.push(msg.clone());
+            parser.next();
+            parser.push(msg.clone());
+            parser.next()
+        });
+    }
+    #[bench]
+    fn bench_parse_sequential2(b: &mut test::Bencher) {
+        let msg =
+            ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
+
+        let mut parser = Parser::new();
+        b.iter(|| {
+            parser.push(msg.clone());
+            parser.push(msg.clone());
+            parser.next();
+            parser.next()
+        });
+    }
 }

@@ -1469,6 +1469,17 @@ mod tests {
 
             b.iter(|| ParsedMessage::parse_iter(msg.clone()));
         }
+
+        #[bench]
+        fn bench_parse_sequential(b: &mut test::Bencher) {
+            let msg =
+                ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
+
+            b.iter(|| {
+                ParsedMessage::parse_iter(msg.clone());
+                ParsedMessage::parse_iter(msg.clone())
+            });
+        }
     }
 
     // #[bench]
