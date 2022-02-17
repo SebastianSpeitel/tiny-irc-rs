@@ -1,4 +1,8 @@
 use std::fmt::{Debug, Display, Formatter, Result as FResult};
+mod util;
+use util::UntilExt;
+
+// use smallvec::SmallVec;
 
 pub trait Message {
     fn command(&self) -> String;
@@ -18,6 +22,20 @@ pub struct ParsedMessage {
     nick: Option<(u16, u16)>,
     user: Option<(u16, u16)>,
     host: Option<(u16, u16)>,
+}
+
+impl Default for ParsedMessage {
+    fn default() -> Self {
+        ParsedMessage {
+            raw: String::new(),
+            command: (0, 0),
+            params: Vec::new(),
+            prefix: None,
+            nick: None,
+            user: None,
+            host: None,
+        }
+    }
 }
 
 impl PartialEq for ParsedMessage {
@@ -113,7 +131,8 @@ impl ParsedMessage {
     /// Parse a message from a string.
     /// Example:
     /// ```
-    /// let msg = ParsedMessage::from(":irc.example.com 001 test :Welcome to the Internet Relay Network");
+    /// use tiny_irc::message::ParsedMessage;
+    /// let msg = ParsedMessage::parse(":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string());
     /// ```
     pub fn parse(raw: String) -> Self {
         let mut prefix: Option<(u16, u16)> = None;
@@ -1252,13 +1271,10 @@ impl ParsedMessage {
 //         }
 //     }
 // }
-mod util;
-use util::UntilExt;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    extern crate test;
 
     #[test]
     fn test_parse() {
@@ -1430,175 +1446,181 @@ mod tests {
     //     b.iter(|| ParsedMessage::parse_foreach(msg.clone()));
     // }
 
-    mod iter {
+    mod bench {
         use super::*;
 
-        #[bench]
-        fn bench_parse_usual(b: &mut test::Bencher) {
-            let msg =
-                ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
-            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+        extern crate test;
+
+        mod iter {
+            use super::*;
+
+            #[bench]
+            fn bench_parse_usual(b: &mut test::Bencher) {
+                let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n"
+                    .to_string();
+                b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+            }
+
+            #[bench]
+            fn bench_parse_small(b: &mut test::Bencher) {
+                let msg = "PING \r\n".to_string();
+                b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+            }
+
+            #[bench]
+            fn bench_parse_long_nick(b: &mut test::Bencher) {
+                let front = ":".to_string();
+                let nick = "_".repeat(512 - 9);
+                let back = " PING ".to_string();
+                let msg = format!("{}{}{}\r\n", front, nick, back);
+
+                assert_eq!(msg.len(), 512);
+
+                b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+            }
+
+            #[bench]
+            fn bench_parse_long_trailing(b: &mut test::Bencher) {
+                let front =
+                    ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
+                let back = "_".repeat(446);
+                let msg = format!("{}{}\r\n", front, back);
+
+                assert_eq!(msg.len(), 512);
+
+                b.iter(|| ParsedMessage::parse_iter(msg.clone()));
+            }
+
+            #[bench]
+            fn bench_parse_sequential(b: &mut test::Bencher) {
+                let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n"
+                    .to_string();
+
+                b.iter(|| {
+                    ParsedMessage::parse_iter(msg.clone());
+                    ParsedMessage::parse_iter(msg.clone())
+                });
+            }
+        }
+
+        // #[bench]
+        // fn bench_parse_for_iter(b: &mut test::Bencher) {
+        //     let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
+        //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
+        // }
+
+        // #[bench]
+        // fn bench_parse_small_for_iter(b: &mut test::Bencher) {
+        //     let msg = "PING".to_string();
+        //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
+        // }
+
+        // #[bench]
+        // fn bench_parse_long_nick_for_iter(b: &mut test::Bencher) {
+        //     let front = ":".to_string();
+        //     let nick = "_".repeat(512 - 6);
+        //     let back = " PING".to_string();
+        //     let msg = format!("{}{}{}", front, nick, back);
+
+        //     assert_eq!(msg.len(), 512);
+
+        //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
+        // }
+
+        // #[bench]
+        // fn bench_parse_long_trailing_for_iter(b: &mut test::Bencher) {
+        //     let front = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
+        //     let back = "_".repeat(448);
+        //     let msg = format!("{}{}", front, back);
+
+        //     assert_eq!(msg.len(), 512);
+
+        //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
+        // }
+
+        #[test]
+        fn test_until() {
+            let vec = vec![1, 2, 3];
+            let mut iter = vec.into_iter();
+            let mut iter_ref = iter.by_ref().until(2);
+            assert_eq!(iter_ref.next(), Some(1));
+            assert_eq!(iter_ref.next(), None);
+            assert_eq!(iter.next(), Some(3));
+            assert_eq!(iter.next(), None);
+        }
+
+        #[test]
+        fn test_until_until() {
+            let vec = vec![1, 2, 3];
+            let mut iter = vec.into_iter();
+            let mut iter_ref = iter.by_ref().until(2).until(1);
+            assert_eq!(iter_ref.next(), None);
+            assert_eq!(iter.next(), Some(2));
+            assert_eq!(iter.next(), Some(3));
+            assert_eq!(iter.next(), None);
+        }
+        #[test]
+        fn test_until_until2() {
+            let vec = vec![1, 2, 3];
+            let mut iter = vec.into_iter();
+            let mut iter_ref = iter.by_ref().until(1).until(2);
+            assert_eq!(iter_ref.next(), None);
+            assert_eq!(iter.next(), Some(2));
+            assert_eq!(iter.next(), Some(3));
+            assert_eq!(iter.next(), None);
         }
 
         #[bench]
-        fn bench_parse_small(b: &mut test::Bencher) {
-            let msg = "PING \r\n".to_string();
-            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
-        }
-
-        #[bench]
-        fn bench_parse_long_nick(b: &mut test::Bencher) {
-            let front = ":".to_string();
-            let nick = "_".repeat(512 - 9);
-            let back = " PING ".to_string();
-            let msg = format!("{}{}{}\r\n", front, nick, back);
-
-            assert_eq!(msg.len(), 512);
-
-            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
-        }
-
-        #[bench]
-        fn bench_parse_long_trailing(b: &mut test::Bencher) {
-            let front =
-                ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
-            let back = "_".repeat(446);
-            let msg = format!("{}{}\r\n", front, back);
-
-            assert_eq!(msg.len(), 512);
-
-            b.iter(|| ParsedMessage::parse_iter(msg.clone()));
-        }
-
-        #[bench]
-        fn bench_parse_sequential(b: &mut test::Bencher) {
-            let msg =
-                ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
-
+        fn bench_until_mapped2(b: &mut test::Bencher) {
+            let mut msg = "_".repeat(512);
+            msg.push('\n');
+            msg.push_str(&"_".repeat(511));
             b.iter(|| {
-                ParsedMessage::parse_iter(msg.clone());
-                ParsedMessage::parse_iter(msg.clone())
+                let mut i1 = msg.bytes();
+                let mut iter = i1.by_ref().until(b'\n').until(b'\r');
+                while let Some(_) = iter.next() {
+                    // if c == b'\n' {
+                    //     break;
+                    // }
+                }
+                i1
+                // println!("{:?}", iter.collect::<Vec<_>>());
             });
         }
-    }
 
-    // #[bench]
-    // fn bench_parse_for_iter(b: &mut test::Bencher) {
-    //     let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
-    //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
-    // }
-
-    // #[bench]
-    // fn bench_parse_small_for_iter(b: &mut test::Bencher) {
-    //     let msg = "PING".to_string();
-    //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
-    // }
-
-    // #[bench]
-    // fn bench_parse_long_nick_for_iter(b: &mut test::Bencher) {
-    //     let front = ":".to_string();
-    //     let nick = "_".repeat(512 - 6);
-    //     let back = " PING".to_string();
-    //     let msg = format!("{}{}{}", front, nick, back);
-
-    //     assert_eq!(msg.len(), 512);
-
-    //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
-    // }
-
-    // #[bench]
-    // fn bench_parse_long_trailing_for_iter(b: &mut test::Bencher) {
-    //     let front = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
-    //     let back = "_".repeat(448);
-    //     let msg = format!("{}{}", front, back);
-
-    //     assert_eq!(msg.len(), 512);
-
-    //     b.iter(|| ParsedMessage::parse_for_iter(msg.clone()));
-    // }
-
-    #[test]
-    fn test_until() {
-        let vec = vec![1, 2, 3];
-        let mut iter = vec.into_iter();
-        let mut iter_ref = iter.by_ref().until(2);
-        assert_eq!(iter_ref.next(), Some(1));
-        assert_eq!(iter_ref.next(), None);
-        assert_eq!(iter.next(), Some(3));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn test_until_until() {
-        let vec = vec![1, 2, 3];
-        let mut iter = vec.into_iter();
-        let mut iter_ref = iter.by_ref().until(2).until(1);
-        assert_eq!(iter_ref.next(), None);
-        assert_eq!(iter.next(), Some(2));
-        assert_eq!(iter.next(), Some(3));
-        assert_eq!(iter.next(), None);
-    }
-    #[test]
-    fn test_until_until2() {
-        let vec = vec![1, 2, 3];
-        let mut iter = vec.into_iter();
-        let mut iter_ref = iter.by_ref().until(1).until(2);
-        assert_eq!(iter_ref.next(), None);
-        assert_eq!(iter.next(), Some(2));
-        assert_eq!(iter.next(), Some(3));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[bench]
-    fn bench_until_mapped2(b: &mut test::Bencher) {
-        let mut msg = "_".repeat(512);
-        msg.push('\n');
-        msg.push_str(&"_".repeat(511));
-        b.iter(|| {
-            let mut i1 = msg.bytes();
-            let mut iter = i1.by_ref().until(b'\n').until(b'\r');
-            while let Some(_) = iter.next() {
-                // if c == b'\n' {
-                //     break;
-                // }
-            }
-            i1
-            // println!("{:?}", iter.collect::<Vec<_>>());
-        });
-    }
-
-    #[bench]
-    fn bench_until_mapped(b: &mut test::Bencher) {
-        let mut msg = "_".repeat(512);
-        msg.push('\n');
-        msg.push_str(&"_".repeat(511));
-        b.iter(|| {
-            let mut i1 = msg.bytes();
-            let mut iter = i1.by_ref().until(b'\n');
-            while let Some(_) = iter.next() {
-                // if c == b'\n' {
-                //     break;
-                // }
-            }
-            i1
-            // println!("{:?}", iter.collect::<Vec<_>>());
-        });
-    }
-
-    #[bench]
-    fn bench_until_raw(b: &mut test::Bencher) {
-        let mut msg = "_".repeat(512);
-        msg.push('\n');
-        msg.push_str(&"_".repeat(511));
-        b.iter(|| {
-            let mut iter = msg.bytes();
-            while let Some(c) = iter.next() {
-                if c == b'\n' || c == b'\r' {
-                    break;
+        #[bench]
+        fn bench_until_mapped(b: &mut test::Bencher) {
+            let mut msg = "_".repeat(512);
+            msg.push('\n');
+            msg.push_str(&"_".repeat(511));
+            b.iter(|| {
+                let mut i1 = msg.bytes();
+                let mut iter = i1.by_ref().until(b'\n');
+                while let Some(_) = iter.next() {
+                    // if c == b'\n' {
+                    //     break;
+                    // }
                 }
-            }
-            iter
-            // println!("{:?}", iter.collect::<Vec<_>>());
-        });
+                i1
+                // println!("{:?}", iter.collect::<Vec<_>>());
+            });
+        }
+
+        #[bench]
+        fn bench_until_raw(b: &mut test::Bencher) {
+            let mut msg = "_".repeat(512);
+            msg.push('\n');
+            msg.push_str(&"_".repeat(511));
+            b.iter(|| {
+                let mut iter = msg.bytes();
+                while let Some(c) = iter.next() {
+                    if c == b'\n' || c == b'\r' {
+                        break;
+                    }
+                }
+                iter
+                // println!("{:?}", iter.collect::<Vec<_>>());
+            });
+        }
     }
 }

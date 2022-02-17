@@ -38,20 +38,10 @@ impl Stream for Chat {
 //     msg
 // }
 
-#[tokio::main]
 async fn main() -> Result<()> {
-    println!("start");
 
     // let nop = Message::NOOP;
 
-    println!("(u8, u16): {:?}", size_of::<(u16, u8)>());
-    println!("Option<(u8, u8)>: {:?}", size_of::<Option<(u8, u8)>>());
-    println!(
-        "Option<Option<(u8, u8)>>: {:?}",
-        size_of::<Option<Option<(u8, u8)>>>()
-    );
-    println!("{:?}", size_of::<(u16, u16)>());
-    println!("{:?}", size_of::<String>());
     // println!("{:?}", size_of::<Option<(usize, usize)>>());
     // println!("{:?}", size_of::<Option<usize>>());
     // println!("{:?}", size_of::<Message>());
@@ -63,16 +53,9 @@ async fn main() -> Result<()> {
     // let msg = foo();
     // println!("{:?}", msg.prefix());
 
-    let mut stream = TcpStream::connect("irc.chat.twitch.tv:6667")?;
     let pass = String::from("foobar");
-    stream.write(format!("PASS {}\r\n", pass).as_bytes())?;
-    stream.write(format!("NICK {}\r\n", "justinfan4514").as_bytes())?;
 
-    sleep(Duration::from_secs(1));
 
-    let mut buf: [u8; 1024] = [0; 1024];
-    stream.read(&mut buf)?;
-    println!("{}", String::from_utf8_lossy(&buf));
 
     // let mut con = Chat {};
 
