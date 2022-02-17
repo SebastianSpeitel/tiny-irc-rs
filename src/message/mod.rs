@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter, Result as FResult};
 mod util;
 use util::UntilExt;
 
-// use smallvec::SmallVec;
+use smallvec::SmallVec;
 
 pub trait Message {
     fn command(&self) -> String;
@@ -17,7 +17,7 @@ pub trait Message {
 pub struct ParsedMessage {
     raw: String,
     command: (u16, u16),
-    params: Vec<(u16, u16)>,
+    params: SmallVec<[(u16, u16); 2]>,
     prefix: Option<(u16, u16)>,
     nick: Option<(u16, u16)>,
     user: Option<(u16, u16)>,
@@ -29,7 +29,7 @@ impl Default for ParsedMessage {
         ParsedMessage {
             raw: String::new(),
             command: (0, 0),
-            params: Vec::new(),
+            params: SmallVec::new(),
             prefix: None,
             nick: None,
             user: None,
@@ -115,7 +115,7 @@ impl ParsedMessage {
         user: Option<(u16, u16)>,
         host: Option<(u16, u16)>,
         command: (u16, u16),
-        params: Vec<(u16, u16)>,
+        params: SmallVec<[(u16, u16); 2]>,
     ) -> Self {
         Self {
             raw,
@@ -140,7 +140,7 @@ impl ParsedMessage {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         enum State {
             Initial,
@@ -297,7 +297,7 @@ impl ParsedMessage {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         enum State {
             Initial,
@@ -455,7 +455,7 @@ impl ParsedMessage {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         enum State {
             PrefixNick { begin: u16 },
@@ -616,7 +616,7 @@ impl ParsedMessage {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         #[derive(Debug)]
         enum State {
@@ -779,7 +779,7 @@ impl ParsedMessage {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         enum State {
             Initial,
@@ -936,7 +936,7 @@ impl ParsedMessage {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         enum State {
             Initial,

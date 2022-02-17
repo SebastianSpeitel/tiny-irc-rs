@@ -1,3 +1,5 @@
+use smallvec::SmallVec;
+
 use crate::message::{Message, ParsedMessage};
 // use std::cell::{Cell, RefCell, RefMut};
 // use std::collections::VecDeque;
@@ -230,7 +232,7 @@ impl Parser {
         &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
-        params: &mut Vec<(u16, u16)>,
+        params: &mut SmallVec<[(u16, u16); 2]>,
     ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b' ' {
@@ -249,7 +251,7 @@ impl Parser {
         &self,
         iter: &mut impl Iterator<Item = (u8, u16)>,
         begin: u16,
-        params: &mut Vec<(u16, u16)>,
+        params: &mut SmallVec<[(u16, u16); 2]>,
     ) -> State {
         while let Some((c, pos)) = iter.next() {
             if c == b'\r' {
@@ -303,7 +305,7 @@ impl Iterator for Parser {
         let mut user: Option<(u16, u16)> = None;
         let mut host: Option<(u16, u16)> = None;
         let mut command: Option<(u16, u16)> = None;
-        let mut params: Vec<(u16, u16)> = Vec::new();
+        let mut params: SmallVec<[(u16, u16); 2]> = SmallVec::new();
 
         // println!("Start: {:?}", self.state);
         debug_assert!(matches!(state, State::Start));
