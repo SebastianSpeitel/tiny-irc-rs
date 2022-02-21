@@ -17,10 +17,8 @@ jobs:
         uses: msys2/setup-msys2@v2
         
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: stable-gnu
-          default: yes
+        shell: msys2 {0}
+        run: pacman -Syy --noconfirm rustup
 
       - name: Show version
         shell: msys2 {0}
