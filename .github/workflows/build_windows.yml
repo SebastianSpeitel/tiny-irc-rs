@@ -30,9 +30,9 @@ jobs:
 
       - name: Set default toolchain
         shell: msys2 {0}
-        run: rustup default stable-gnu
+        run: C:\Users\runneradmin\.cargo\bin\rustup.exe default stable-gnu
 
       - name: Show version
         shell: msys2 {0}
-        run: cargo --version
-          | rustup toolchain list
+        run: C:\Users\runneradmin\.cargo\bin\cargo.exe --version
+          | C:\Users\runneradmin\.cargo\bin\rustup.exe toolchain list
