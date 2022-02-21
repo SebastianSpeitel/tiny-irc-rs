@@ -1,0 +1,28 @@
+
+name: Build Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        
+      - name: Setup Rust
+        uses: ATiltedTree/setup-rust@v1.0.5
+        with:
+          rust-version: stable-gnu
+          
+      - name: Set default toolchain
+        shell: msys2 {0}
+        run: rustup default stable-gnu
+
+      - name: Show version
+        shell: msys2 {0}
+        run: cargo --version
