@@ -1,17 +1,11 @@
 use std::fmt::{Debug, Display, Formatter, Result as FResult};
 mod util;
 use util::UntilExt;
+mod traits;
+use traits::*;
+pub mod prelude;
 
 use smallvec::SmallVec;
-
-pub trait Message {
-    fn command(&self) -> String;
-    fn params(&self) -> Vec<String>;
-    fn prefix(&self) -> Option<String>;
-    fn nick(&self) -> Option<String>;
-    fn user(&self) -> Option<String>;
-    fn host(&self) -> Option<String>;
-}
 
 // #[derive(Debug, PartialEq)]
 pub struct ParsedMessage {
@@ -67,6 +61,9 @@ impl Message for ParsedMessage {
                 .to_string()
         }
     }
+}
+
+impl Parameterized for ParsedMessage {
     fn params(&self) -> Vec<String> {
         self.params
             .iter()
@@ -77,6 +74,8 @@ impl Message for ParsedMessage {
             })
             .collect()
     }
+}
+impl Prefixed for ParsedMessage {
     fn prefix(&self) -> Option<String> {
         self.prefix.map(|(begin, end)| unsafe {
             self.raw

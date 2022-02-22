@@ -1,6 +1,6 @@
 use smallvec::SmallVec;
 
-use crate::message::{Message, ParsedMessage};
+use crate::message::{prelude::*, ParsedMessage};
 // use std::cell::{Cell, RefCell, RefMut};
 // use std::collections::VecDeque;
 use std::mem::{replace, take};
