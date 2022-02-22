@@ -16,23 +16,23 @@ jobs:
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         
-      #- name: Setup Rust
-      #  shell: msys2 {0}
-      #  run: pacman -Syy --noconfirm rustup
-      
       - name: Setup Rust
-        uses: ATiltedTree/setup-rust@v1.0.5
-        with:
-          rust-version: stable-gnu
+        shell: msys2 {0}
+        run: pacman -Syy --noconfirm mingw-w64-rust
+      
+      #- name: Setup Rust
+      #  uses: ATiltedTree/setup-rust@v1.0.5
+      #  with:
+      #    rust-version: stable-gnu
           
       - shell: msys2 {0}
         run: env
 
-      - name: Set default toolchain
-        shell: msys2 {0}
-        run: "C:\\Users\\runneradmin\\.cargo\\bin\\rustup.exe default stable-gnu"
+      #- name: Set default toolchain
+      #  shell: msys2 {0}
+      #  run: "C:\\Users\\runneradmin\\.cargo\\bin\\rustup.exe default stable-gnu"
 
       - name: Show version
         shell: msys2 {0}
-        run: "C:\\Users\\runneradmin\\.cargo\\bin\\cargo.exe --version"
+        run: "cargo --version"
        #   | "C:\\Users\\runneradmin\\.cargo\\bin\\rustup.exe toolchain list"
