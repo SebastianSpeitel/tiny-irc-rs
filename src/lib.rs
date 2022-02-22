@@ -1,5 +1,5 @@
 // #![feature(async_stream)]
-#![feature(test)]
+// #![feature(test)]
 
 use futures::Stream;
 use std::io::{Read, Result, Write};
