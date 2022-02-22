@@ -18,7 +18,7 @@ jobs:
         
       - name: Setup Rust
         shell: msys2 {0}
-        run: pacman -Syy --noconfirm mingw-w64-x86_64-rust
+        run: pacman -Syy --noconfirm mingw-w64-x86_64-rust mingw-w64-x86_64-gtk4 mingw-w64-x86_64-pkgconf mingw-w64-x86_64-gcc
       
       #- name: Setup Rust
       #  uses: ATiltedTree/setup-rust@v1.0.5
@@ -36,3 +36,16 @@ jobs:
         shell: msys2 {0}
         run: "cargo --version"
        #   | "C:\\Users\\runneradmin\\.cargo\\bin\\rustup.exe toolchain list"
+       
+      - name: Build
+        shell: msys2 {0}
+        run: cargo build
+        
+      - shell: msys2 {0}
+        run: tree target
+        
+      #- name: Upload Binary
+      #  uses: actions/upload-artifact@v2.3.1
+      #  with:
+      #    name: Binary
+      #    path: 
