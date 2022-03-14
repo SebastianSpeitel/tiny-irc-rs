@@ -242,10 +242,10 @@ impl Iterator for Parser {
         let mut state = State::Start;
         // let buffer = &self.buffer;
         // let mut iter = BufferIter::new(buffer.iter().cloned());
-        let mut pos: u16 = 0;
+        let mut pos: i32 = -1;
         let mut iter = self.buffer.iter().map(|c| {
             pos += 1;
-            (*c, pos - 1)
+            (*c, pos as u16)
         });
 
         // println!("pos: {:?}, len: {:?}", iter.pos, iter.len());
