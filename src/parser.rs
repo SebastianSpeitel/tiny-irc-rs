@@ -230,7 +230,7 @@ impl Parser {
         if self.buffer.is_empty() {
             self.buffer = buf_in.to_vec();
         } else {
-            self.buffer.append(&mut buf_in.to_vec());
+            self.buffer.extend_from_slice(buf_in);
         }
     }
 }
