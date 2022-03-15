@@ -67,7 +67,7 @@ where
 
 #[inline(always)]
 fn parse_start(iter: &mut impl Iterator<Item = (u8, u16)>) -> State {
-    if let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         debug_assert_eq!(pos, 0);
         if c == b':' {
             return State::PrefixNick { begin: 1 };
@@ -85,7 +85,7 @@ fn parse_prefix_nick(
     prefix: &mut Option<(u16, u16)>,
     nick: &mut Option<(u16, u16)>,
 ) -> State {
-    while let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b'!' {
             nick.replace((begin, pos));
             return State::PrefixUser {
@@ -115,7 +115,7 @@ fn parse_prefix_user(
     prefix: &mut Option<(u16, u16)>,
     user: &mut Option<(u16, u16)>,
 ) -> State {
-    while let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b'@' {
             user.replace((begin, pos));
             return State::PrefixHost {
@@ -139,7 +139,7 @@ fn parse_prefix_host(
     prefix: &mut Option<(u16, u16)>,
     host: &mut Option<(u16, u16)>,
 ) -> State {
-    while let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b' ' {
             host.replace((begin, pos));
             prefix.replace((begin_prefix, pos));
@@ -155,7 +155,7 @@ fn parse_command(
     begin: u16,
     command: &mut Option<(u16, u16)>,
 ) -> State {
-    while let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b' ' {
             command.replace((begin, pos));
             return State::Params;
@@ -168,7 +168,7 @@ fn parse_command(
 
 #[inline(always)]
 fn parse_params(iter: &mut impl Iterator<Item = (u8, u16)>) -> State {
-    if let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b':' {
             return State::ParamsTrailing { begin: pos + 1 };
         } else if c == b'\r' {
@@ -186,7 +186,7 @@ fn parse_params_middle(
     begin: u16,
     params: &mut SmallVec<[(u16, u16); 2]>,
 ) -> State {
-    while let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b' ' {
             params.push((begin, pos));
             return State::Params;
@@ -204,7 +204,7 @@ fn parse_params_trailing(
     begin: u16,
     params: &mut SmallVec<[(u16, u16); 2]>,
 ) -> State {
-    while let Some((c, pos)) = iter.next() {
+    for (c, pos) in iter {
         if c == b'\r' {
             params.push((begin, pos));
             return State::End;
