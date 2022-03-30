@@ -170,12 +170,7 @@ mod steps {
     }
 }
 
-#[derive(Debug)]
-pub enum ParseResult<T, E> {
-    Parsed { result: T, consumed: NonZeroUsize },
-    None,
-    Error(E),
-}
+type ParseResult<R, E> = Result<Option<(R, NonZeroUsize)>, E>;
 
 pub trait Parsable
 where
@@ -242,10 +237,8 @@ impl Parsable for ParsedMessage {
                         .map(|(begin, end)| (begin as u16, end as u16))
                         .collect(),
                 );
-                return ParseResult::Parsed {
-                    result: msg,
-                    consumed: unsafe { NonZeroUsize::new_unchecked(pos) },
-                };
+                let consumed = unsafe { NonZeroUsize::new_unchecked(pos) };
+                return Ok(Some((msg, consumed)));
             };
 
             while let State::Params = state {
@@ -264,7 +257,7 @@ impl Parsable for ParsedMessage {
 
             match state {
                 State::EOF => {
-                    return ParseResult::None;
+                    return Ok(None);
                 }
                 State::Error => {
                     panic!("{:?}", state);
@@ -298,14 +291,30 @@ where
 
     fn parse(&mut self) -> std::result::Result<Option<M>, Box<dyn std::error::Error>> {
         let buf = self.reader.fill_buf()?;
+        // M::parse(buf)
+        //     .map(|r| {
+        //         r.map(|(msg, consumed)| {
+        //             self.reader.consume(consumed.get());
+        //             msg
+        //         })
+        //     })
+        //     .map_err(|e| e.into())
         match M::parse(buf) {
-            ParseResult::Parsed { result, consumed } => {
+            Ok(Some((msg, consumed))) => {
                 self.reader.consume(consumed.get());
-                Ok(Some(result))
+                Ok(Some(msg))
             }
-            ParseResult::None => Ok(None),
-            ParseResult::Error(e) => Err(e.into()),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.into()),
         }
+        // match M::parse(buf) {
+        //     ParseResult::Parsed { result, consumed } => {
+        //         self.reader.consume(consumed.get());
+        //         Ok(Some(result))
+        //     }
+        //     ParseResult::None => Ok(None),
+        //     ParseResult::Error(e) => Err(e.into()),
+        // }
     }
 }
 
@@ -331,10 +340,7 @@ mod tests {
     fn test_parse() {
         let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
-        let msg = match msg {
-            ParseResult::Parsed { result: msg, .. } => msg,
-            r => panic!("parse failed: {:?}", r),
-        };
+        let msg = msg.unwrap().unwrap().0;
 
         // assert_eq!(
         //     msg.raw,
@@ -352,10 +358,7 @@ mod tests {
     fn test_param_middle() {
         let msg = "000 param\r\n".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
-        let msg = match msg {
-            ParseResult::Parsed { result: msg, .. } => msg,
-            r => panic!("parse failed: {:?}", r),
-        };
+        let msg = msg.unwrap().unwrap().0;
 
         assert_eq!(msg.params(), vec!["param"]);
     }
@@ -364,10 +367,7 @@ mod tests {
     fn test_param_trailing() {
         let msg = "000 :param\r\n".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
-        let msg = match msg {
-            ParseResult::Parsed { result: msg, .. } => msg,
-            r => panic!("parse failed: {:?}", r),
-        };
+        let msg = msg.unwrap().unwrap().0;
 
         assert_eq!(msg.params(), vec!["param"]);
     }
@@ -376,10 +376,7 @@ mod tests {
     fn test_full_prefix() {
         let msg = ":nick!user@host 000\r\n".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
-        let msg = match msg {
-            ParseResult::Parsed { result: msg, .. } => msg,
-            r => panic!("parse failed: {:?}", r),
-        };
+        let msg = msg.unwrap().unwrap().0;
 
         // assert_eq!(msg.prefix(), Some("nick!user@host".to_string()));
         assert_eq!(msg.nick(), Some("nick".to_string()));
@@ -393,10 +390,7 @@ mod tests {
             ":<nick>!<user>@<user>.tmi.twitch.tv PRIVMSG #<channel> :This is a sample message\r\n"
                 .as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
-        let msg = match msg {
-            ParseResult::Parsed { result: msg, .. } => msg,
-            r => panic!("parse failed: {:?}", r),
-        };
+        let msg = msg.unwrap().unwrap().0;
 
         assert_eq!(msg.command(), "PRIVMSG");
         // assert_eq!(
@@ -422,11 +416,9 @@ mod bench {
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
-            ParseResult::Parsed { .. }
+            Ok(Some(_))
         ));
-        b.iter(|| {
-            <ParsedMessage as Parsable>::parse(msg);
-        });
+        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
     }
 
     #[bench]
@@ -435,11 +427,9 @@ mod bench {
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
-            ParseResult::Parsed { .. }
+            Ok(Some(_))
         ));
-        b.iter(|| {
-            <ParsedMessage as Parsable>::parse(msg);
-        });
+        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
     }
 
     #[bench]
@@ -455,11 +445,9 @@ mod bench {
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
-            ParseResult::Parsed { .. }
+            Ok(Some(_))
         ));
-        b.iter(|| {
-            <ParsedMessage as Parsable>::parse(msg);
-        });
+        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
     }
 
     #[bench]
@@ -473,11 +461,9 @@ mod bench {
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
-            ParseResult::Parsed { .. }
+            Ok(Some(_))
         ));
-        b.iter(|| {
-            <ParsedMessage as Parsable>::parse(msg);
-        });
+        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
     }
 
     #[bench]
@@ -486,11 +472,11 @@ mod bench {
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
-            ParseResult::Parsed { .. }
+            Ok(Some(_))
         ));
         b.iter(|| {
             <ParsedMessage as Parsable>::parse(msg);
-            <ParsedMessage as Parsable>::parse(msg);
+            <ParsedMessage as Parsable>::parse(msg)
         });
     }
 }
