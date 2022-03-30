@@ -1,7 +1,6 @@
 // #![feature(async_stream)]
 #![feature(test)]
 
-use futures::Stream;
 use std::io::{Read, Result, Write};
 use std::net::TcpStream;
 use std::pin::Pin;
@@ -10,21 +9,23 @@ use std::thread::sleep;
 use std::time::Duration;
 pub mod message;
 mod parser;
+pub mod read_parser;
+
 // use message::{from, BaseMsg, Message, PRIVMSG};
 use std::mem::size_of;
 
 struct Chat {}
 
-impl Stream for Chat {
-    type Item = String;
-    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Ready(Some("Hello".to_string()))
-    }
-    // fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    //     println!("poll_next");
-    //     Poll::Ready(None)
-    // }
-}
+// impl Stream for Chat {
+//     type Item = String;
+//     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//         Poll::Ready(Some("Hello".to_string()))
+//     }
+//     // fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//     //     println!("poll_next");
+//     //     Poll::Ready(None)
+//     // }
+// }
 
 // impl StreamExt for Con {
 // }
