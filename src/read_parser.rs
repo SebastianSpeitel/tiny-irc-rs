@@ -102,7 +102,7 @@ mod steps {
                         State::Params
                     }
                     b'\r' => {
-                        *offset = end + 1;
+                        *offset = end + 2;
                         State::End
                     }
                     _ => unreachable!(),
@@ -139,11 +139,17 @@ mod steps {
             Some(i) => {
                 let end = *offset + i;
                 params.push((*offset, end));
-                *offset = end + 1;
+
                 debug_assert!(matches!(buf[i], b' ' | b'\r'));
                 match buf[i] {
-                    b' ' => State::Params,
-                    b'\r' => State::End,
+                    b' ' => {
+                        *offset = end + 1;
+                        State::Params
+                    }
+                    b'\r' => {
+                        *offset = end + 2;
+                        State::End
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -162,7 +168,7 @@ mod steps {
             Some(i) => {
                 let end = *offset + i;
                 params.push((*offset, end));
-                *offset = end + 1;
+                *offset = end + 2;
                 State::End
             }
             None => State::EOF,
