@@ -402,6 +402,30 @@ mod tests {
         assert_eq!(msg.host(), Some("<user>.tmi.twitch.tv".to_string()));
         assert_eq!(msg.params(), vec!["#<channel>", "This is a sample message"]);
     }
+
+    #[test]
+    fn test_parse_incomplete() {
+        let msgs = vec![
+            ":",
+            ":nick",
+            ":nick!",
+            ":nick!user",
+            ":nick!user@",
+            ":nick!user@host",
+            ":nick!user@host ",
+            ":nick!user@host 001",
+            ":nick!user@host 001 ",
+            ":nick!user@host 001 param",
+            ":nick!user@host 001 :",
+            ":nick!user@host 001 :trailing",
+        ];
+
+        for msg in msgs {
+            dbg!(msg);
+            let msg = <ParsedMessage as Parsable>::parse(msg.as_bytes());
+            assert!(msg.unwrap().is_none());
+        }
+    }
 }
 
 #[cfg(test)]
