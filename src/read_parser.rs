@@ -355,6 +355,19 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_two() {
+        let buf = "PING\r\n".as_bytes().repeat(2);
+        let msg = <ParsedMessage as Parsable>::parse(&buf);
+        let (msg, pos) = msg.unwrap().unwrap();
+        assert_ne!(pos.get(), 0);
+
+        let msg2 = <ParsedMessage as Parsable>::parse(&buf[pos.get()..]);
+        let msg2 = msg2.unwrap().unwrap().0;
+
+        assert_eq!(msg.command(), msg2.command());
+    }
+
+    #[test]
     fn test_param_middle() {
         let msg = "000 param\r\n".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
