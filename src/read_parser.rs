@@ -374,6 +374,22 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_newline_incomplete() {
+        let buf = "PING\r".as_bytes();
+        let msg = <ParsedMessage as Parsable>::parse(buf);
+        assert!(matches!(msg, Ok(None)));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_parse_newline_invalid() {
+        let buf = "PING\rPONG".as_bytes();
+        let msg = <ParsedMessage as Parsable>::parse(buf);
+        let msg = msg.unwrap().unwrap().0;
+        dbg!(msg);
+    }
+
+    #[test]
     fn test_param_middle() {
         let msg = "000 param\r\n".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(msg);
