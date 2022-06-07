@@ -102,7 +102,7 @@ mod steps {
                         State::Params
                     }
                     b'\r' => {
-                        *offset = end + 2;
+                        *offset = end;
                         State::End
                     }
                     _ => unreachable!(),
@@ -147,7 +147,7 @@ mod steps {
                         State::Params
                     }
                     b'\r' => {
-                        *offset = end + 2;
+                        *offset = end;
                         State::End
                     }
                     _ => unreachable!(),
@@ -168,7 +168,7 @@ mod steps {
             Some(i) => {
                 let end = *offset + i;
                 params.push((*offset, end));
-                *offset = end + 2;
+                *offset = end;
                 State::End
             }
             None => State::EOF,
@@ -229,6 +229,16 @@ impl Parsable for ParsedMessage {
 
         loop {
             if let State::End = state {
+                // pos is the index of the last character before the newline
+                match buf.get(pos + 1) {
+                    Some(b'\n') => {}
+                    Some(_) => {
+                        panic!("invalid message");
+                    }
+                    None => {
+                        return Ok(None);
+                    }
+                }
                 let msg = ParsedMessage::new(
                     unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) },
                     prefix.map(|(begin, end)| (begin as u16, end as u16)),
@@ -243,7 +253,9 @@ impl Parsable for ParsedMessage {
                         .map(|(begin, end)| (begin as u16, end as u16))
                         .collect(),
                 );
-                let consumed = unsafe { NonZeroUsize::new_unchecked(pos) };
+
+                // message + '\r\n' = pos + 2
+                let consumed = unsafe { NonZeroUsize::new_unchecked(pos + 2) };
                 return Ok(Some((msg, consumed)));
             };
 
