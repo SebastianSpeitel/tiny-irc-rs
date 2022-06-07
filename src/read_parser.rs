@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader, Error, Read},
-    num::{NonZeroU64, NonZeroUsize},
+    num::NonZeroUsize,
 };
 
 use super::message::ParsedMessage;
@@ -191,19 +191,11 @@ impl Parsable for ParsedMessage {
     type Error = Error;
 
     fn parse(buf: &[u8]) -> ParseResult<Self, Self::Error> {
-        use smallvec::SmallVec;
         use steps::State;
 
         let mut pos: usize = 0;
 
         let mut msg = Self::default();
-
-        // let mut prefix: Option<(usize, usize)> = None;
-        // let mut nick: Option<(usize, usize)> = None;
-        // let mut user: Option<(usize, usize)> = None;
-        // let mut host: Option<(usize, usize)> = None;
-        // let mut command: Option<(usize, usize)> = None;
-        // let mut params: SmallVec<[(usize, usize); 2]> = SmallVec::new();
 
         let mut state = steps::start(buf, &mut pos);
 
@@ -243,21 +235,6 @@ impl Parsable for ParsedMessage {
                 }
 
                 msg.raw = unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) };
-
-                // let msg = ParsedMessage::new(
-                //     unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) },
-                //     prefix.map(|(begin, end)| (begin as u16, end as u16)),
-                //     nick.map(|(begin, end)| (begin as u16, end as u16)),
-                //     user.map(|(begin, end)| (begin as u16, end as u16)),
-                //     host.map(|(begin, end)| (begin as u16, end as u16)),
-                //     command
-                //         .map(|(begin, end)| (begin as u16, end as u16))
-                //         .unwrap(),
-                //     params
-                //         .into_iter()
-                //         .map(|(begin, end)| (begin as u16, end as u16))
-                //         .collect(),
-                // );
 
                 // message + '\r\n' = pos + 2
                 let consumed = unsafe { NonZeroUsize::new_unchecked(pos + 2) };
