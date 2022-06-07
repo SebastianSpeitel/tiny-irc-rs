@@ -24,7 +24,7 @@ mod steps {
 
     #[inline(always)]
     pub fn start(buf: &[u8], offset: &mut usize) -> State {
-        match buf.get(*offset) {
+        match buf.get(0) {
             Some(b':') => {
                 *offset += 1;
                 State::Nick
