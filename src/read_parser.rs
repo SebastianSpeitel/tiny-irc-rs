@@ -35,12 +35,12 @@ mod steps {
     }
 
     #[inline(always)]
-    pub fn nick(buf: &[u8], offset: &mut usize, nick: &mut Option<(usize, usize)>) -> State {
+    pub fn nick(buf: &[u8], offset: &mut usize, nick: &mut Option<(u16, u16)>) -> State {
         use memchr::memchr3;
         match memchr3(b' ', b'!', b'@', buf) {
             Some(i) => {
                 let end = *offset + i;
-                nick.replace((*offset, end));
+                nick.replace((*offset as u16, end as u16));
                 *offset = end + 1;
                 match buf[i] {
                     b'!' => State::User,
@@ -54,12 +54,12 @@ mod steps {
     }
 
     #[inline(always)]
-    pub fn user(buf: &[u8], offset: &mut usize, user: &mut Option<(usize, usize)>) -> State {
+    pub fn user(buf: &[u8], offset: &mut usize, user: &mut Option<(u16, u16)>) -> State {
         use memchr::memchr2;
         match memchr2(b' ', b'@', buf) {
             Some(i) => {
                 let end = *offset + i;
-                user.replace((*offset, end));
+                user.replace((*offset as u16, end as u16));
                 *offset = end + 1;
 
                 debug_assert!(matches!(buf[i], b' ' | b'@'));
@@ -74,12 +74,12 @@ mod steps {
     }
 
     #[inline(always)]
-    pub fn host(buf: &[u8], offset: &mut usize, host: &mut Option<(usize, usize)>) -> State {
+    pub fn host(buf: &[u8], offset: &mut usize, host: &mut Option<(u16, u16)>) -> State {
         use memchr::memchr;
         match memchr(b' ', buf) {
             Some(i) => {
                 let end = *offset + i;
-                host.replace((*offset, end));
+                host.replace((*offset as u16, end as u16));
                 *offset = end + 1;
                 State::Command
             }
@@ -88,12 +88,12 @@ mod steps {
     }
 
     #[inline(always)]
-    pub fn command(buf: &[u8], offset: &mut usize, command: &mut Option<(usize, usize)>) -> State {
+    pub fn command(buf: &[u8], offset: &mut usize, command: &mut (u16, u16)) -> State {
         use memchr::memchr2;
         match memchr2(b' ', b'\r', buf) {
             Some(i) => {
                 let end = *offset + i;
-                command.replace((*offset, end));
+                *command = (*offset as u16, end as u16);
 
                 debug_assert!(matches!(buf[i], b' ' | b'\r'));
                 match buf[i] {
@@ -132,13 +132,13 @@ mod steps {
     pub fn param_middle(
         buf: &[u8],
         offset: &mut usize,
-        params: &mut smallvec::SmallVec<[(usize, usize); 2]>,
+        params: &mut smallvec::SmallVec<[(u16, u16); 2]>,
     ) -> State {
         use memchr::memchr2;
         match memchr2(b' ', b'\r', buf) {
             Some(i) => {
                 let end = *offset + i;
-                params.push((*offset, end));
+                params.push((*offset as u16, end as u16));
 
                 debug_assert!(matches!(buf[i], b' ' | b'\r'));
                 match buf[i] {
@@ -161,13 +161,13 @@ mod steps {
     pub fn param_trailing(
         buf: &[u8],
         offset: &mut usize,
-        params: &mut smallvec::SmallVec<[(usize, usize); 2]>,
+        params: &mut smallvec::SmallVec<[(u16, u16); 2]>,
     ) -> State {
         use memchr::memchr;
         match memchr(b'\r', buf) {
             Some(i) => {
                 let end = *offset + i;
-                params.push((*offset, end));
+                params.push((*offset as u16, end as u16));
                 *offset = end;
                 State::End
             }
@@ -196,35 +196,37 @@ impl Parsable for ParsedMessage {
 
         let mut pos: usize = 0;
 
-        let mut prefix: Option<(usize, usize)> = None;
-        let mut nick: Option<(usize, usize)> = None;
-        let mut user: Option<(usize, usize)> = None;
-        let mut host: Option<(usize, usize)> = None;
-        let mut command: Option<(usize, usize)> = None;
-        let mut params: SmallVec<[(usize, usize); 2]> = SmallVec::new();
+        let mut msg = Self::default();
+
+        // let mut prefix: Option<(usize, usize)> = None;
+        // let mut nick: Option<(usize, usize)> = None;
+        // let mut user: Option<(usize, usize)> = None;
+        // let mut host: Option<(usize, usize)> = None;
+        // let mut command: Option<(usize, usize)> = None;
+        // let mut params: SmallVec<[(usize, usize); 2]> = SmallVec::new();
 
         let mut state = steps::start(buf, &mut pos);
 
         if let State::Nick = state {
-            state = steps::nick(&buf[pos..], &mut pos, &mut nick);
+            state = steps::nick(&buf[pos..], &mut pos, &mut msg.nick);
 
             match state {
                 State::User => {
-                    state = steps::user(&buf[pos..], &mut pos, &mut user);
+                    state = steps::user(&buf[pos..], &mut pos, &mut msg.user);
 
                     if let State::Host = state {
-                        state = steps::host(&buf[pos..], &mut pos, &mut host);
+                        state = steps::host(&buf[pos..], &mut pos, &mut msg.host);
                     }
                 }
                 State::Host => {
-                    state = steps::host(&buf[pos..], &mut pos, &mut host);
+                    state = steps::host(&buf[pos..], &mut pos, &mut msg.host);
                 }
                 _ => {}
             };
         };
 
         if let State::Command = state {
-            state = steps::command(&buf[pos..], &mut pos, &mut command);
+            state = steps::command(&buf[pos..], &mut pos, &mut msg.command);
         };
 
         loop {
@@ -239,20 +241,23 @@ impl Parsable for ParsedMessage {
                         return Ok(None);
                     }
                 }
-                let msg = ParsedMessage::new(
-                    unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) },
-                    prefix.map(|(begin, end)| (begin as u16, end as u16)),
-                    nick.map(|(begin, end)| (begin as u16, end as u16)),
-                    user.map(|(begin, end)| (begin as u16, end as u16)),
-                    host.map(|(begin, end)| (begin as u16, end as u16)),
-                    command
-                        .map(|(begin, end)| (begin as u16, end as u16))
-                        .unwrap(),
-                    params
-                        .into_iter()
-                        .map(|(begin, end)| (begin as u16, end as u16))
-                        .collect(),
-                );
+
+                msg.raw = unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) };
+
+                // let msg = ParsedMessage::new(
+                //     unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) },
+                //     prefix.map(|(begin, end)| (begin as u16, end as u16)),
+                //     nick.map(|(begin, end)| (begin as u16, end as u16)),
+                //     user.map(|(begin, end)| (begin as u16, end as u16)),
+                //     host.map(|(begin, end)| (begin as u16, end as u16)),
+                //     command
+                //         .map(|(begin, end)| (begin as u16, end as u16))
+                //         .unwrap(),
+                //     params
+                //         .into_iter()
+                //         .map(|(begin, end)| (begin as u16, end as u16))
+                //         .collect(),
+                // );
 
                 // message + '\r\n' = pos + 2
                 let consumed = unsafe { NonZeroUsize::new_unchecked(pos + 2) };
@@ -265,10 +270,10 @@ impl Parsable for ParsedMessage {
 
             match state {
                 State::ParamMiddle => {
-                    state = steps::param_middle(&buf[pos..], &mut pos, &mut params);
+                    state = steps::param_middle(&buf[pos..], &mut pos, &mut msg.params);
                 }
                 State::ParamTrailing => {
-                    state = steps::param_trailing(&buf[pos..], &mut pos, &mut params);
+                    state = steps::param_trailing(&buf[pos..], &mut pos, &mut msg.params);
                 }
                 _ => {}
             };

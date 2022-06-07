@@ -9,13 +9,13 @@ use smallvec::SmallVec;
 
 // #[derive(Debug, PartialEq)]
 pub struct ParsedMessage {
-    raw: String,
-    command: (u16, u16),
-    params: SmallVec<[(u16, u16); 2]>,
-    prefix: Option<(u16, u16)>,
-    nick: Option<(u16, u16)>,
-    user: Option<(u16, u16)>,
-    host: Option<(u16, u16)>,
+    pub(crate) raw: String,
+    pub(crate) command: (u16, u16),
+    pub(crate) params: SmallVec<[(u16, u16); 2]>,
+    pub(crate) prefix: Option<(u16, u16)>,
+    pub(crate) nick: Option<(u16, u16)>,
+    pub(crate) user: Option<(u16, u16)>,
+    pub(crate) host: Option<(u16, u16)>,
 }
 
 impl Default for ParsedMessage {
