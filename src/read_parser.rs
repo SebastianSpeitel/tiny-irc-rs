@@ -19,7 +19,7 @@ mod steps {
         End,
 
         EOF,
-        Error,
+        Invalid,
     }
 
     #[inline(always)]
@@ -187,8 +187,25 @@ where
     fn parse(buf: &[u8]) -> ParseResult<Self, Self::Error>;
 }
 
+#[derive(Debug)]
+pub enum ParseError {
+    Invalid,
+    EOF,
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::Invalid => write!(f, "Invalid Message"),
+            ParseError::EOF => write!(f, "Incomplete Message"),
+        }
+    }
+}
+
+impl std::error::Error for ParseError {}
+
 impl Parsable for ParsedMessage {
-    type Error = Error;
+    type Error = ParseError;
 
     fn parse(buf: &[u8]) -> ParseResult<Self, Self::Error> {
         use steps::State;
@@ -227,7 +244,7 @@ impl Parsable for ParsedMessage {
                 match buf.get(pos + 1) {
                     Some(b'\n') => {}
                     Some(_) => {
-                        panic!("invalid message");
+                        return Err(ParseError::Invalid);
                     }
                     None => {
                         return Ok(None);
@@ -259,8 +276,8 @@ impl Parsable for ParsedMessage {
                 State::EOF => {
                     return Ok(None);
                 }
-                State::Error => {
-                    panic!("{:?}", state);
+                State::Invalid => {
+                    return Err(ParseError::Invalid);
                 }
                 _ => {}
             };
@@ -375,12 +392,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_parse_newline_invalid() {
         let buf = "PING\rPONG".as_bytes();
         let msg = <ParsedMessage as Parsable>::parse(buf);
-        let msg = msg.unwrap().unwrap().0;
-        dbg!(msg);
+        assert!(matches!(msg, Err(ParseError::Invalid)));
     }
 
     #[test]
