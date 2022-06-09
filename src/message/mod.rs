@@ -45,8 +45,33 @@ impl Display for ParsedMessage {
 }
 
 impl Debug for ParsedMessage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        write!(f, "{}", self.raw)
+    fn fmt(&self, f: &mut Formatter) -> FResult {
+        let mut debug_struct = f.debug_struct("Message");
+
+        debug_struct.field("command", &self.command());
+
+        if let Some(prefix) = self.prefix() {
+            debug_struct.field("prefix", &prefix);
+        }
+
+        if let Some(nick) = self.nick() {
+            debug_struct.field("nick", &nick);
+        }
+
+        if let Some(user) = self.user() {
+            debug_struct.field("user", &user);
+        }
+
+        if let Some(host) = self.host() {
+            debug_struct.field("host", &host);
+        }
+
+        let params = self.params();
+        if !params.is_empty() {
+            debug_struct.field("params", &params);
+        }
+
+        debug_struct.finish()
     }
 }
 
