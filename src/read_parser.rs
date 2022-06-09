@@ -42,6 +42,8 @@ mod steps {
                 let end = *offset + i;
                 nick.replace((*offset as u16, end as u16));
                 *offset = end + 1;
+
+                debug_assert!(matches!(buf[i], b' ' | b'!' | b'@'));
                 match buf[i] {
                     b'!' => State::User,
                     b'@' => State::Host,
