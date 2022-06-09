@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, Error, Read},
+    io::{BufRead, BufReader, Read},
     num::NonZeroUsize,
 };
 mod message;
