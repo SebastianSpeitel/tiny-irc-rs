@@ -6,6 +6,7 @@ mod message;
 pub use message::ParsedMessage;
 
 mod steps {
+    use core::hint::unreachable_unchecked;
 
     #[derive(Debug)]
     pub enum State {
@@ -48,7 +49,7 @@ mod steps {
                     b'!' => State::User,
                     b'@' => State::Host,
                     b' ' => State::Command,
-                    _ => unreachable!(),
+                    _ => unsafe { unreachable_unchecked() },
                 }
             }
             None => State::EOF,
@@ -68,7 +69,7 @@ mod steps {
                 match buf[i] {
                     b'@' => State::Host,
                     b' ' => State::Command,
-                    _ => unreachable!(),
+                    _ => unsafe { unreachable_unchecked() },
                 }
             }
             None => State::EOF,
@@ -107,7 +108,7 @@ mod steps {
                         *offset = end;
                         State::End
                     }
-                    _ => unreachable!(),
+                    _ => unsafe { unreachable_unchecked() },
                 }
             }
             None => State::EOF,
@@ -152,7 +153,7 @@ mod steps {
                         *offset = end;
                         State::End
                     }
-                    _ => unreachable!(),
+                    _ => unsafe { unreachable_unchecked() },
                 }
             }
             None => State::EOF,
