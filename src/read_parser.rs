@@ -208,38 +208,38 @@ impl Parsable for ParsedMessage {
     type Error = ParseError;
 
     fn parse(buf: &[u8]) -> ParseResult<Self, Self::Error> {
-        use steps::State;
+        use steps::{State::*, *};
 
         let mut pos: usize = 0;
 
         let mut msg = Self::new();
 
-        let mut state = steps::start(buf, &mut pos);
+        let mut state = start(buf, &mut pos);
 
-        if let State::Nick = state {
-            state = steps::nick(&buf[pos..], &mut pos, &mut msg.nick);
+        if let Nick = state {
+            state = nick(&buf[pos..], &mut pos, &mut msg.nick);
 
             match state {
-                State::User => {
-                    state = steps::user(&buf[pos..], &mut pos, &mut msg.user);
+                User => {
+                    state = user(&buf[pos..], &mut pos, &mut msg.user);
 
-                    if let State::Host = state {
-                        state = steps::host(&buf[pos..], &mut pos, &mut msg.host);
+                    if let Host = state {
+                        state = host(&buf[pos..], &mut pos, &mut msg.host);
                     }
                 }
-                State::Host => {
-                    state = steps::host(&buf[pos..], &mut pos, &mut msg.host);
+                Host => {
+                    state = host(&buf[pos..], &mut pos, &mut msg.host);
                 }
                 _ => {}
             };
         };
 
-        if let State::Command = state {
-            state = steps::command(&buf[pos..], &mut pos, &mut msg.command);
+        if let Command = state {
+            state = command(&buf[pos..], &mut pos, &mut msg.command);
         };
 
         loop {
-            if let State::End = state {
+            if let End = state {
                 // pos is the index of the last character before the newline
                 match buf.get(pos + 1) {
                     Some(b'\n') => {}
@@ -258,25 +258,25 @@ impl Parsable for ParsedMessage {
                 return Ok(Some((msg, consumed)));
             };
 
-            while let State::Params = state {
-                state = steps::params(&buf[pos..], &mut pos);
+            while let Params = state {
+                state = params(&buf[pos..], &mut pos);
             }
 
             match state {
-                State::ParamMiddle => {
-                    state = steps::param_middle(&buf[pos..], &mut pos, &mut msg.params);
+                ParamMiddle => {
+                    state = param_middle(&buf[pos..], &mut pos, &mut msg.params);
                 }
-                State::ParamTrailing => {
-                    state = steps::param_trailing(&buf[pos..], &mut pos, &mut msg.params);
+                ParamTrailing => {
+                    state = param_trailing(&buf[pos..], &mut pos, &mut msg.params);
                 }
                 _ => {}
             };
 
             match state {
-                State::EOF => {
+                EOF => {
                     return Ok(None);
                 }
-                State::Invalid => {
+                Invalid => {
                     return Err(ParseError::Invalid);
                 }
                 _ => {}
