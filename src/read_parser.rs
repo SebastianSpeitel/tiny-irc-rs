@@ -2,8 +2,8 @@ use std::{
     io::{BufRead, BufReader, Error, Read},
     num::NonZeroUsize,
 };
-
-use super::message::ParsedMessage;
+mod message;
+pub use message::ParsedMessage;
 
 mod steps {
 
@@ -212,7 +212,7 @@ impl Parsable for ParsedMessage {
 
         let mut pos: usize = 0;
 
-        let mut msg = Self::default();
+        let mut msg = Self::new();
 
         let mut state = steps::start(buf, &mut pos);
 
