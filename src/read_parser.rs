@@ -251,7 +251,8 @@ impl Parsable for ParsedMessage {
                     }
                 }
 
-                msg.raw = unsafe { String::from_utf8_unchecked(buf[..pos].to_vec()) };
+                msg.raw =
+                    unsafe { std::str::from_utf8_unchecked(&buf.get_unchecked(..pos)) }.to_owned();
 
                 // message + '\r\n' = pos + 2
                 let consumed = unsafe { NonZeroUsize::new_unchecked(pos + 2) };
