@@ -187,7 +187,7 @@ where
     Self::Error: Into<Box<dyn std::error::Error>>,
 {
     type Error;
-    fn parse(buf: &[u8]) -> ParseResult<Self, Self::Error>;
+    fn parse(buf: impl AsRef<[u8]>) -> ParseResult<Self, Self::Error>;
 }
 
 #[derive(Debug)]
@@ -210,8 +210,10 @@ impl std::error::Error for ParseError {}
 impl Parsable for ParsedMessage {
     type Error = ParseError;
 
-    fn parse(buf: &[u8]) -> ParseResult<Self, Self::Error> {
+    fn parse(buf: impl AsRef<[u8]>) -> ParseResult<Self, Self::Error> {
         use steps::{State::*, *};
+
+        let buf = buf.as_ref();
 
         let mut pos: usize = 0;
 
@@ -377,7 +379,7 @@ mod tests {
 
     #[test]
     fn test_parse_two() {
-        let buf = "PING\r\n".as_bytes().repeat(2);
+        let buf = "PING\r\n".repeat(2);
         let msg = <ParsedMessage as Parsable>::parse(&buf);
         let (msg, pos) = msg.unwrap().unwrap();
         assert_ne!(pos.get(), 0);
@@ -390,21 +392,21 @@ mod tests {
 
     #[test]
     fn test_parse_newline_incomplete() {
-        let buf = "PING\r".as_bytes();
+        let buf = "PING\r";
         let msg = <ParsedMessage as Parsable>::parse(buf);
         assert!(matches!(msg, Ok(None)));
     }
 
     #[test]
     fn test_parse_newline_invalid() {
-        let buf = "PING\rPONG".as_bytes();
+        let buf = "PING\rPONG";
         let msg = <ParsedMessage as Parsable>::parse(buf);
         assert!(matches!(msg, Err(ParseError::Invalid)));
     }
 
     #[test]
     fn test_param_middle() {
-        let msg = "000 param\r\n".as_bytes();
+        let msg = "000 param\r\n";
         let msg = <ParsedMessage as Parsable>::parse(msg);
         let msg = msg.unwrap().unwrap().0;
 
@@ -413,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_param_trailing() {
-        let msg = "000 :param\r\n".as_bytes();
+        let msg = "000 :param\r\n";
         let msg = <ParsedMessage as Parsable>::parse(msg);
         let msg = msg.unwrap().unwrap().0;
 
@@ -422,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_full_prefix() {
-        let msg = ":nick!user@host 000\r\n".as_bytes();
+        let msg = ":nick!user@host 000\r\n";
         let msg = <ParsedMessage as Parsable>::parse(msg);
         let msg = msg.unwrap().unwrap().0;
 
@@ -435,8 +437,7 @@ mod tests {
     #[test]
     fn test_parse_with_prefix() {
         let msg =
-            ":<nick>!<user>@<user>.tmi.twitch.tv PRIVMSG #<channel> :This is a sample message\r\n"
-                .as_bytes();
+            ":<nick>!<user>@<user>.tmi.twitch.tv PRIVMSG #<channel> :This is a sample message\r\n";
         let msg = <ParsedMessage as Parsable>::parse(msg);
         let msg = msg.unwrap().unwrap().0;
 
@@ -470,10 +471,24 @@ mod tests {
 
         for msg in msgs {
             dbg!(msg);
-            let msg = <ParsedMessage as Parsable>::parse(msg.as_bytes());
+            let msg = <ParsedMessage as Parsable>::parse(msg);
             assert!(msg.unwrap().is_none());
         }
     }
+
+    // #[test]
+    // fn test_parse_complete() {
+    //     let msgs = vec![":\r\n"];
+
+    //     for msg in msgs {
+    //         dbg!(msg);
+    //         let msg = <ParsedMessage as Parsable>::parse(msg.as_bytes());
+    //         dbg!(&msg);
+    //         assert!(msg.unwrap().is_some());
+    //     }
+
+    //     assert!(false);
+    // }
 }
 
 #[cfg(test)]
@@ -484,7 +499,7 @@ mod bench {
 
     #[bench]
     fn parse_usual(b: &mut Bencher) {
-        let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".as_bytes();
+        let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n";
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
@@ -495,7 +510,7 @@ mod bench {
 
     #[bench]
     fn parse_small(b: &mut test::Bencher) {
-        let msg = "PING\r\n".as_bytes();
+        let msg = "PING\r\n";
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
@@ -511,15 +526,13 @@ mod bench {
         let back = " PING ".to_string();
         let msg = format!("{}{}{}\r\n", front, nick, back);
 
-        let msg = msg.as_bytes();
-
         assert_eq!(msg.len(), 512);
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
@@ -527,20 +540,19 @@ mod bench {
         let front = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
         let back = "_".repeat(446);
         let msg = format!("{}{}\r\n", front, back);
-        let msg = msg.as_bytes();
 
         assert_eq!(msg.len(), 512);
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_sequential1(b: &mut test::Bencher) {
-        let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".as_bytes();
+        let msg = ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n";
 
         assert!(matches!(
             <ParsedMessage as Parsable>::parse(msg),
@@ -555,84 +567,77 @@ mod bench {
     #[bench]
     fn parse_privmsg_10(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(10));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_privmsg_20(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(20));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_privmsg_30(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(30));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_privmsg_40(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(40));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_privmsg_50(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(50));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_privmsg_100(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(100));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 
     #[bench]
     fn parse_privmsg_200(b: &mut test::Bencher) {
         let msg = format!(":irc.example.com PRIVMSG #test :{}\r\n", "_".repeat(200));
-        let msg = msg.as_bytes();
 
         assert!(matches!(
-            <ParsedMessage as Parsable>::parse(msg),
+            <ParsedMessage as Parsable>::parse(&msg),
             Ok(Some(_))
         ));
-        b.iter(|| <ParsedMessage as Parsable>::parse(msg));
+        b.iter(|| <ParsedMessage as Parsable>::parse(&msg));
     }
 }
