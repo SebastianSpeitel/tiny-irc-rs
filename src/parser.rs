@@ -481,7 +481,7 @@ mod tests {
     #[bench]
     fn bench_parse_usual(b: &mut test::Bencher) {
         let msg =
-            ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n".to_string();
+            ":irc.example.com 001 test :Welcome to the Internet Relay Network\r\n_".to_string();
         let mut parser = Parser::new();
         b.iter(|| {
             parser.push(msg.clone());
@@ -491,7 +491,7 @@ mod tests {
 
     #[bench]
     fn bench_parse_small(b: &mut test::Bencher) {
-        let msg = "PING \r\n".to_string();
+        let msg = "PING \r\n_".to_string();
         let mut parser = Parser::new();
         b.iter(|| {
             parser.push(msg.clone());
@@ -504,9 +504,9 @@ mod tests {
         let front = ":".to_string();
         let nick = "_".repeat(512 - 9);
         let back = " PING ".to_string();
-        let msg = format!("{}{}{}\r\n", front, nick, back);
+        let msg = format!("{}{}{}\r\n_", front, nick, back);
 
-        assert_eq!(msg.len(), 512);
+        assert_eq!(msg.len(), 513);
 
         let mut parser = Parser::new();
         b.iter(|| {
@@ -519,9 +519,9 @@ mod tests {
     fn bench_parse_long_trailing(b: &mut test::Bencher) {
         let front = ":irc.example.com 001 test :Welcome to the Internet Relay Network".to_string();
         let back = "_".repeat(446);
-        let msg = format!("{}{}\r\n", front, back);
+        let msg = format!("{}{}\r\n_", front, back);
 
-        assert_eq!(msg.len(), 512);
+        assert_eq!(msg.len(), 513);
 
         let mut parser = Parser::new();
         b.iter(|| {
